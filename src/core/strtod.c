@@ -209,7 +209,8 @@ static double convert(
     /* Approximate exponent in base 2 of mant and exponent. This should get us a good estimate of the final size of the
      * number, within * 2^32 or so. */
     int64_t mant_exp2_approx = mant->n * 32 + 16;
-    int64_t exp_exp2_approx = (int64_t)(floor(log2(base) * exponent));
+    //int64_t exp_exp2_approx = (int64_t)(floor(log2(base) * exponent)); // XXX XXX XXX XX
+		int64_t exp_exp2_approx = 0; // XXX XXX XXX XXX 
     int64_t exp2_approx = mant_exp2_approx + exp_exp2_approx;
 
     /* Short circuit zero, huge, and small numbers. We use the exponent range of valid IEEE754 doubles (-1022, 1023)

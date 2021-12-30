@@ -28,7 +28,7 @@ INCLUDEDIR?=$(PREFIX)/include
 BINDIR?=$(PREFIX)/bin
 LIBDIR?=$(PREFIX)/lib
 JANET_BUILD?="\"$(shell git log --pretty=format:'%h' -n 1 2> /dev/null || echo local)\""
-CLIBS=-lm -lpthread
+CLIBS=-lm
 JANET_TARGET=build/janet
 JANET_LIBRARY=build/libjanet.so
 JANET_STATIC_LIBRARY=build/libjanet.a
@@ -46,7 +46,7 @@ HOSTAR?=$(AR)
 CFLAGS?=-O2
 LDFLAGS?=-rdynamic
 
-COMMON_CFLAGS:=-std=c99 -Wall -Wextra -Isrc/include -Isrc/conf -fvisibility=hidden -fPIC
+COMMON_CFLAGS:=-std=c99 -Wall -Wextra -Isrc/include -Isrc/conf -fvisibility=hidden 
 BOOT_CFLAGS:=-DJANET_BOOTSTRAP -DJANET_BUILD=$(JANET_BUILD) -O0 -g $(COMMON_CFLAGS)
 BUILD_CFLAGS:=$(CFLAGS) $(COMMON_CFLAGS)
 
@@ -54,29 +54,29 @@ BUILD_CFLAGS:=$(CFLAGS) $(COMMON_CFLAGS)
 LDCONFIG:=ldconfig "$(LIBDIR)"
 
 # Check OS
-UNAME:=$(shell uname -s)
-ifeq ($(UNAME), Darwin)
-	CLIBS:=$(CLIBS) -ldl
-	SONAME_SETTER:=-Wl,-install_name,
-	LDCONFIG:=true
-else ifeq ($(UNAME), Linux)
-	CLIBS:=$(CLIBS) -lrt -ldl
-endif
-
-# For other unix likes, add flags here!
-ifeq ($(UNAME), Haiku)
-	LDCONFIG:=true
-	LDFLAGS=-Wl,--export-dynamic
-endif
-# For Android (termux)
-ifeq ($(UNAME), Linux) # uname on Darwin doesn't recognise -o
-ifeq ($(shell uname -o), Android)
-	CLIBS:=$(CLIBS) -landroid-spawn
-endif
-endif
+###UNAME:=$(shell uname -s)
+###ifeq ($(UNAME), Darwin)
+###	CLIBS:=$(CLIBS) -ldl
+###	SONAME_SETTER:=-Wl,-install_name,
+###	LDCONFIG:=true
+###else ifeq ($(UNAME), Linux)
+###	CLIBS:=$(CLIBS) -lrt -ldl
+###endif
+###
+#### For other unix likes, add flags here!
+###ifeq ($(UNAME), Haiku)
+###	LDCONFIG:=true
+###	LDFLAGS=-Wl,--export-dynamic
+###endif
+#### For Android (termux)
+###ifeq ($(UNAME), Linux) # uname on Darwin doesn't recognise -o
+###ifeq ($(shell uname -o), Android)
+###	CLIBS:=$(CLIBS) -landroid-spawn
+###endif
+###endif
 
 $(shell mkdir -p build/core build/c build/boot)
-all: $(JANET_TARGET) $(JANET_LIBRARY) $(JANET_STATIC_LIBRARY) build/janet.h
+all: $(JANET_TARGET) $(JANET_STATIC_LIBRARY) build/janet.h
 
 ######################
 ##### Name Files #####

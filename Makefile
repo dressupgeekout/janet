@@ -76,7 +76,7 @@ LDCONFIG:=ldconfig "$(LIBDIR)"
 ###endif
 
 $(shell mkdir -p build/core build/c build/boot)
-all: $(JANET_TARGET) $(JANET_STATIC_LIBRARY) build/janet.h
+all: $(JANET_TARGET) $(JANET_STATIC_LIBRARY)
 
 ######################
 ##### Name Files #####

@@ -20,8 +20,8 @@
 /* These settings should be specified before amalgamation is
  * built. Any build with these set should be considered non-standard, and
  * certain Janet libraries should be expected not to work. */
-/* #define JANET_NO_DOCSTRINGS */
-/* #define JANET_NO_SOURCEMAPS */
+#define JANET_NO_DOCSTRINGS
+#define JANET_NO_SOURCEMAPS
 #define JANET_REDUCED_OS
 #define JANET_NO_PROCESSES
 /* #define JANET_NO_ASSEMBLER */

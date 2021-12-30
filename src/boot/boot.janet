@@ -3553,7 +3553,7 @@
   (var raw-stdin false)
   (var handleopts true)
   (var exit-on-error true)
-  (var colorize true)
+  (var colorize false)
   (var debug-flag false)
   (var compile-only false)
   (var warn-level nil)
@@ -3589,7 +3589,6 @@
                -m syspath : Set system path for loading global modules
                -c source output : Compile janet source code into an image
                -i : Load the script argument as an image file instead of source code
-               -n : Disable ANSI color output in the REPL
                -l lib : Use a module before processing more arguments
                -w level : Set the lint warning level - default is "normal"
                -x level : Set the lint error level - default is "none"
@@ -3604,7 +3603,6 @@
      "q" (fn [&] (set quiet true) 1)
      "i" (fn [&] (set expect-image true) 1)
      "k" (fn [&] (set compile-only true) (set exit-on-error false) 1)
-     "n" (fn [&] (set colorize false) 1)
      "m" (fn [i &] (setdyn :syspath (in args (+ i 1))) 2)
      "c" (fn c-switch [i &]
            (def path (in args (+ i 1)))
@@ -3692,9 +3690,9 @@
         (def getter (if raw-stdin getstdin getline))
         (defn getchunk [buf p]
           (getter (getprompt p) buf env))
-        (setdyn :pretty-format (if colorize "%.20Q" "%.20q"))
-        (setdyn :err-color (if colorize true))
-        (setdyn :doc-color (if colorize true))
+        (setdyn :pretty-format "%.20q")
+        (setdyn :err-color false)
+        (setdyn :doc-color false)
         (setdyn :lint-error error-level)
         (setdyn :lint-warn error-level)
         (repl getchunk nil env)))))

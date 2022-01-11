@@ -114,10 +114,8 @@ https://github.com/antirez/linenoise/blob/master/linenoise.c
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
-#include <ctype.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/ioctl.h>
 #include <unistd.h>
 #include <string.h>
 #include <signal.h>
@@ -160,27 +158,12 @@ static char *sdup(const char *s) {
 
 /* Ansi terminal raw mode */
 static int rawmode(void) {
-    struct termios t;
-    if (!isatty(STDIN_FILENO)) goto fatal;
-    if (tcgetattr(STDIN_FILENO, &gbl_termios_start) == -1) goto fatal;
-    t = gbl_termios_start;
-    t.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
-    t.c_cflag |= (CS8);
-    t.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
-    t.c_cc[VMIN] = 1;
-    t.c_cc[VTIME] = 0;
-    if (tcsetattr(STDIN_FILENO, TCSADRAIN, &t) < 0) goto fatal;
-    gbl_israwmode = 1;
     return 0;
-fatal:
-    errno = ENOTTY;
-    return -1;
 }
 
 /* Disable raw mode */
 static void norawmode(void) {
-    if (gbl_israwmode && tcsetattr(STDIN_FILENO, TCSADRAIN, &gbl_termios_start) != -1)
-        gbl_israwmode = 0;
+	;
 }
 
 static int curpos(void) {
@@ -200,26 +183,6 @@ static int curpos(void) {
 }
 
 static int getcols(void) {
-    struct winsize ws;
-    if (ioctl(1, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
-        int start, cols;
-        start = curpos();
-        if (start == -1) goto failed;
-        if (write(STDOUT_FILENO, "\x1b[999C", 6) != 6) goto failed;
-        cols = curpos();
-        if (cols == -1) goto failed;
-        if (cols > start) {
-            char seq[32];
-            snprintf(seq, 32, "\x1b[%dD", cols - start);
-            if (write(STDOUT_FILENO, seq, strlen(seq)) == -1) {
-                exit(1);
-            }
-        }
-        return cols;
-    } else {
-        return ws.ws_col;
-    }
-failed:
     return 80;
 }
 
@@ -758,7 +721,7 @@ static int line() {
                 break;
             case 3:     /* ctrl-c */
                 norawmode();
-                kill(getpid(), SIGINT);
+                //kill(getpid(), SIGINT);
             /* fallthrough */
             case 17:    /* ctrl-q */
                 gbl_cancel_current_repl_form = 1;
@@ -821,7 +784,7 @@ static int line() {
                 break;
             case 26: /* ctrl-z */
                 norawmode();
-                kill(getpid(), SIGSTOP);
+                //kill(getpid(), SIGSTOP);
                 rawmode();
                 refresh();
                 break;

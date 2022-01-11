@@ -148,18 +148,18 @@ JANET_CORE_FN(cfun_io_popen,
 }
 #endif
 
-JANET_CORE_FN(cfun_io_temp,
-              "(file/temp)",
-              "Open an anonymous temporary file that is removed on close. "
-              "Raises an error on failure.") {
-    (void)argv;
-    janet_fixarity(argc, 0);
-    // XXX use mkostemp when we can to avoid CLOEXEC race.
-    FILE *tmp = tmpfile();
-    if (!tmp)
-        janet_panicf("unable to create temporary file - %s", strerror(errno));
-    return janet_makefile(tmp, JANET_FILE_WRITE | JANET_FILE_READ | JANET_FILE_BINARY);
-}
+//JANET_CORE_FN(cfun_io_temp,
+//              "(file/temp)",
+//              "Open an anonymous temporary file that is removed on close. "
+//              "Raises an error on failure.") {
+//    (void)argv;
+//    janet_fixarity(argc, 0);
+//    // XXX use mkostemp when we can to avoid CLOEXEC race.
+//    FILE *tmp = tmpfile();
+//    if (!tmp)
+//        janet_panicf("unable to create temporary file - %s", strerror(errno));
+//    return janet_makefile(tmp, JANET_FILE_WRITE | JANET_FILE_READ | JANET_FILE_BINARY);
+//}
 
 JANET_CORE_FN(cfun_io_fopen,
               "(file/open path &opt mode)",
@@ -795,7 +795,7 @@ void janet_lib_io(JanetTable *env) {
         JANET_CORE_REG("xprinf", cfun_io_xprinf),
         JANET_CORE_REG("flush", cfun_io_flush),
         JANET_CORE_REG("eflush", cfun_io_eflush),
-        JANET_CORE_REG("file/temp", cfun_io_temp),
+        //JANET_CORE_REG("file/temp", cfun_io_temp),
         JANET_CORE_REG("file/open", cfun_io_fopen),
         JANET_CORE_REG("file/close", cfun_io_fclose),
         JANET_CORE_REG("file/read", cfun_io_fread),

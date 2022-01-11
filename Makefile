@@ -44,7 +44,7 @@ SONAME_SETTER=-Wl,-soname,
 HOSTCC?=$(CC)
 HOSTAR?=$(AR)
 CFLAGS?=-O2
-LDFLAGS?=-rdynamic
+LDFLAGS?=
 
 COMMON_CFLAGS:=-std=c99 -Wall -Wextra -Isrc/include -Isrc/conf -fvisibility=hidden 
 BOOT_CFLAGS:=-DJANET_BOOTSTRAP -DJANET_BUILD=$(JANET_BUILD) -O0 -g $(COMMON_CFLAGS)

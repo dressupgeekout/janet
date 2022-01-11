@@ -43,8 +43,9 @@ SONAME_SETTER=-Wl,-soname,
 # For cross compilation
 HOSTCC?=$(CC)
 HOSTAR?=$(AR)
-CFLAGS?=-O2
-LDFLAGS?=
+CFLAGS?=-O2 -nostdlib 
+LIBCMINI=/Users/charlotte/devel/atari/freemint/libcmini/build
+LDFLAGS?=-nostdlib $(LIBCMINI)/crt0.o -L$(LIBCMINI)
 
 COMMON_CFLAGS:=-std=c99 -Wall -Wextra -Isrc/include -Isrc/conf -fvisibility=hidden 
 BOOT_CFLAGS:=-DJANET_BOOTSTRAP -DJANET_BUILD=$(JANET_BUILD) -O0 -g $(COMMON_CFLAGS)
@@ -183,7 +184,7 @@ build/shell.o: build/c/shell.c src/conf/janetconf.h src/include/janet.h
 	$(HOSTCC) $(BUILD_CFLAGS) -c $< -o $@
 
 $(JANET_TARGET): build/janet.o build/shell.o
-	$(HOSTCC) $(LDFLAGS) $(BUILD_CFLAGS) -o $@ $^ $(CLIBS)
+	$(HOSTCC) $(LDFLAGS) $(BUILD_CFLAGS) -o $@ $^ $(CLIBS) -lcmini -lgcc
 
 $(JANET_LIBRARY): build/janet.o build/shell.o
 	$(HOSTCC) $(LDFLAGS) $(BUILD_CFLAGS) $(SONAME_SETTER)$(SONAME) -shared -o $@ $^ $(CLIBS)

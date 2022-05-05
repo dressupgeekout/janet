@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2021 Calvin Rose
+* Copyright (c) 2022 Calvin Rose
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to
@@ -62,6 +62,8 @@ static JanetSlot quasiquote(JanetFopts opts, Janet x, int depth, int level) {
         return janetc_cslot(janet_wrap_nil());
     }
     JanetSlot *slots = NULL;
+    JanetFopts subopts = opts;
+    subopts.flags &= ~JANET_FOPTS_HINT;
     switch (janet_type(x)) {
         default:
             return janetc_cslot(x);
@@ -82,7 +84,7 @@ static JanetSlot quasiquote(JanetFopts opts, Janet x, int depth, int level) {
                 }
             }
             for (i = 0; i < len; i++)
-                janet_v_push(slots, quasiquote(opts, tup[i], depth - 1, level));
+                janet_v_push(slots, quasiquote(subopts, tup[i], depth - 1, level));
             return qq_slots(opts, slots, (janet_tuple_flag(tup) & JANET_TUPLE_FLAG_BRACKETCTOR)
                             ? JOP_MAKE_BRACKET_TUPLE
                             : JOP_MAKE_TUPLE);
@@ -91,7 +93,7 @@ static JanetSlot quasiquote(JanetFopts opts, Janet x, int depth, int level) {
             int32_t i;
             JanetArray *array = janet_unwrap_array(x);
             for (i = 0; i < array->count; i++)
-                janet_v_push(slots, quasiquote(opts, array->data[i], depth - 1, level));
+                janet_v_push(slots, quasiquote(subopts, array->data[i], depth - 1, level));
             return qq_slots(opts, slots, JOP_MAKE_ARRAY);
         }
         case JANET_TABLE:
@@ -100,8 +102,8 @@ static JanetSlot quasiquote(JanetFopts opts, Janet x, int depth, int level) {
             int32_t len, cap = 0;
             janet_dictionary_view(x, &kvs, &len, &cap);
             while ((kv = janet_dictionary_next(kvs, cap, kv))) {
-                JanetSlot key = quasiquote(opts, kv->key, depth - 1, level);
-                JanetSlot value =  quasiquote(opts, kv->value, depth - 1, level);
+                JanetSlot key = quasiquote(subopts, kv->key, depth - 1, level);
+                JanetSlot value =  quasiquote(subopts, kv->value, depth - 1, level);
                 key.flags &= ~JANET_SLOT_SPLICED;
                 value.flags &= ~JANET_SLOT_SPLICED;
                 janet_v_push(slots, key);
@@ -154,6 +156,67 @@ static int destructure(JanetCompiler *c,
             for (int32_t i = 0; i < len; i++) {
                 JanetSlot nextright = janetc_farslot(c);
                 Janet subval = values[i];
+
+                if (janet_checktype(subval, JANET_SYMBOL) && !janet_cstrcmp(janet_unwrap_symbol(subval), "&")) {
+                    if (i + 1 >= len) {
+                        janetc_cerror(c, "expected symbol following '& in destructuring pattern");
+                        return 1;
+                    }
+
+                    if (i + 2 < len) {
+                        int32_t num_extra = len - i - 1;
+                        Janet *extra = janet_tuple_begin(num_extra);
+                        janet_tuple_flag(extra) |= JANET_TUPLE_FLAG_BRACKETCTOR;
+
+                        for (int32_t j = 0; j < num_extra; ++j) {
+                            extra[j] = values[j + i + 1];
+                        }
+
+                        janetc_error(c, janet_formatc("expected a single symbol follow '& in destructuring pattern, found %q", janet_wrap_tuple(janet_tuple_end(extra))));
+                        return 1;
+                    }
+
+
+                    if (!janet_checktype(values[i + 1], JANET_SYMBOL)) {
+                        janetc_error(c, janet_formatc("expected symbol following '& in destructuring pattern, found %q", values[i + 1]));
+                        return 1;
+                    }
+
+                    JanetSlot argi = janetc_farslot(c);
+                    JanetSlot arg  = janetc_farslot(c);
+                    JanetSlot len  = janetc_farslot(c);
+
+                    janetc_emit_si(c, JOP_LOAD_INTEGER, argi, i, 0);
+                    janetc_emit_ss(c, JOP_LENGTH, len, right, 0);
+
+                    /* loop condition - reuse arg slot for the condition result */
+                    int32_t label_loop_start = janetc_emit_sss(c, JOP_LESS_THAN, arg, argi, len, 0);
+                    int32_t label_loop_cond_jump = janetc_emit_si(c, JOP_JUMP_IF_NOT, arg, 0, 0);
+
+                    /* loop body */
+                    janetc_emit_sss(c, JOP_GET, arg, right, argi, 0);
+                    janetc_emit_s(c, JOP_PUSH, arg, 0);
+                    janetc_emit_ssi(c, JOP_ADD_IMMEDIATE, argi, argi, 1, 0);
+
+                    /* loop - jump back to the start of the loop */
+                    int32_t label_loop_loop = janet_v_count(c->buffer);
+                    janetc_emit(c, JOP_JUMP);
+                    int32_t label_loop_exit = janet_v_count(c->buffer);
+
+                    c->buffer[label_loop_cond_jump] |= (label_loop_exit - label_loop_cond_jump) << 16;
+                    c->buffer[label_loop_loop] |= (label_loop_start - label_loop_loop) << 8;
+
+                    janetc_freeslot(c, argi);
+                    janetc_freeslot(c, arg);
+                    janetc_freeslot(c, len);
+
+                    janetc_emit_s(c, JOP_MAKE_TUPLE, nextright, 1);
+
+                    leaf(c, janet_unwrap_symbol(values[i + 1]), nextright, attr);
+                    janetc_freeslot(c, nextright);
+                    break;
+                }
+
                 if (i < 0x100) {
                     janetc_emit_ssu(c, JOP_GET_INDEX, nextright, right, (uint8_t) i, 1);
                 } else {
@@ -242,6 +305,9 @@ static JanetTable *handleattr(JanetCompiler *c, int32_t argn, const Janet *argv)
     for (i = 1; i < argn - 1; i++) {
         Janet attr = argv[i];
         switch (janet_type(attr)) {
+            case JANET_TUPLE:
+                janetc_cerror(c, "unexpected form - did you intend to use defn?");
+                break;
             default:
                 janetc_cerror(c, "could not add metadata to binding");
                 break;
@@ -298,8 +364,20 @@ static int varleaf(
         /* Global var, generate var */
         JanetSlot refslot;
         JanetTable *entry = janet_table_clone(reftab);
-        JanetArray *ref = janet_array(1);
-        janet_array_push(ref, janet_wrap_nil());
+
+        Janet redef_kw = janet_ckeywordv("redef");
+        int is_redef = janet_truthy(janet_table_get(c->env, redef_kw));
+
+        JanetArray *ref;
+        JanetBinding old_binding;
+        if (is_redef && (old_binding = janet_resolve_ext(c->env, sym),
+                         old_binding.type == JANET_BINDING_VAR)) {
+            ref = janet_unwrap_array(old_binding.value);
+        } else {
+            ref = janet_array(1);
+            janet_array_push(ref, janet_wrap_nil());
+        }
+
         janet_table_put(entry, janet_ckeywordv("ref"), janet_wrap_array(ref));
         janet_table_put(entry, janet_ckeywordv("source-map"),
                         janet_wrap_tuple(janetc_make_sourcemap(c)));
@@ -315,10 +393,11 @@ static int varleaf(
 static JanetSlot janetc_var(JanetFopts opts, int32_t argn, const Janet *argv) {
     JanetCompiler *c = opts.compiler;
     Janet head;
+    JanetTable *attr_table = handleattr(c, argn, argv);
     JanetSlot ret = dohead(c, opts, &head, argn, argv);
     if (c->result.status == JANET_COMPILE_ERROR)
         return janetc_cslot(janet_wrap_nil());
-    destructure(c, argv[0], ret, varleaf, handleattr(c, argn, argv));
+    destructure(c, argv[0], ret, varleaf, attr_table);
     return ret;
 }
 
@@ -331,14 +410,31 @@ static int defleaf(
         JanetTable *entry = janet_table_clone(tab);
         janet_table_put(entry, janet_ckeywordv("source-map"),
                         janet_wrap_tuple(janetc_make_sourcemap(c)));
-        JanetSlot valsym = janetc_cslot(janet_ckeywordv("value"));
-        JanetSlot tabslot = janetc_cslot(janet_wrap_table(entry));
+
+        Janet redef_kw = janet_ckeywordv("redef");
+        int is_redef = janet_truthy(janet_table_get(c->env, redef_kw));
+        if (is_redef) janet_table_put(entry, redef_kw, janet_wrap_true());
+
+        if (is_redef) {
+            JanetBinding binding = janet_resolve_ext(c->env, sym);
+            JanetArray *ref;
+            if (binding.type == JANET_BINDING_DYNAMIC_DEF || binding.type == JANET_BINDING_DYNAMIC_MACRO) {
+                ref = janet_unwrap_array(binding.value);
+            } else {
+                ref = janet_array(1);
+                janet_array_push(ref, janet_wrap_nil());
+            }
+            janet_table_put(entry, janet_ckeywordv("ref"), janet_wrap_array(ref));
+            JanetSlot refslot = janetc_cslot(janet_wrap_array(ref));
+            janetc_emit_ssu(c, JOP_PUT_INDEX, refslot, s, 0, 0);
+        } else {
+            JanetSlot valsym = janetc_cslot(janet_ckeywordv("value"));
+            JanetSlot tabslot = janetc_cslot(janet_wrap_table(entry));
+            janetc_emit_sss(c, JOP_PUT, tabslot, valsym, s, 0);
+        }
 
         /* Add env entry to env */
         janet_table_put(c->env, janet_wrap_symbol(sym), janet_wrap_table(entry));
-
-        /* Put value in table when evaulated */
-        janetc_emit_sss(c, JOP_PUT, tabslot, valsym, s, 0);
     }
     return namelocal(c, sym, 0, s);
 }
@@ -347,10 +443,11 @@ static JanetSlot janetc_def(JanetFopts opts, int32_t argn, const Janet *argv) {
     JanetCompiler *c = opts.compiler;
     Janet head;
     opts.flags &= ~JANET_FOPTS_HINT;
+    JanetTable *attr_table = handleattr(c, argn, argv);
     JanetSlot ret = dohead(c, opts, &head, argn, argv);
     if (c->result.status == JANET_COMPILE_ERROR)
         return janetc_cslot(janet_wrap_nil());
-    destructure(c, argv[0], ret, defleaf, handleattr(c, argn, argv));
+    destructure(c, argv[0], ret, defleaf, attr_table);
     return ret;
 }
 

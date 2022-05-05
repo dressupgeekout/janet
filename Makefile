@@ -54,26 +54,27 @@ BUILD_CFLAGS:=$(CFLAGS) $(COMMON_CFLAGS)
 LDCONFIG:=ldconfig "$(LIBDIR)"
 
 # Check OS
-###UNAME:=$(shell uname -s)
-###ifeq ($(UNAME), Darwin)
-###	CLIBS:=$(CLIBS) -ldl
-###	SONAME_SETTER:=-Wl,-install_name,
-###	LDCONFIG:=true
-###else ifeq ($(UNAME), Linux)
-###	CLIBS:=$(CLIBS) -lrt -ldl
-###endif
-###
-#### For other unix likes, add flags here!
-###ifeq ($(UNAME), Haiku)
-###	LDCONFIG:=true
-###	LDFLAGS=-Wl,--export-dynamic
-###endif
-#### For Android (termux)
-###ifeq ($(UNAME), Linux) # uname on Darwin doesn't recognise -o
-###ifeq ($(shell uname -o), Android)
-###	CLIBS:=$(CLIBS) -landroid-spawn
-###endif
-###endif
+#UNAME:=$(shell uname -s)
+#ifeq ($(UNAME), Darwin)
+#	CLIBS:=$(CLIBS) -ldl
+#	SONAME_SETTER:=-Wl,-install_name,
+#	JANET_LIBRARY=build/libjanet.dylib
+#	LDCONFIG:=true
+#else ifeq ($(UNAME), Linux)
+#	CLIBS:=$(CLIBS) -lrt -ldl
+#endif
+#
+## For other unix likes, add flags here!
+#ifeq ($(UNAME), Haiku)
+#	LDCONFIG:=true
+#	LDFLAGS=-Wl,--export-dynamic
+#endif
+## For Android (termux)
+#ifeq ($(UNAME), Linux) # uname on Darwin doesn't recognise -o
+#ifeq ($(shell uname -o), Android)
+#	CLIBS:=$(CLIBS) -landroid-spawn
+#endif
+#endif
 
 $(shell mkdir -p build/core build/c build/boot)
 all: $(JANET_TARGET) $(JANET_STATIC_LIBRARY)
@@ -165,7 +166,11 @@ build/c/janet.c: build/janet_boot src/boot/boot.janet
 ##### Amalgamation #####
 ########################
 
-SONAME=libjanet.so.1.19
+ifeq ($(UNAME), Darwin)
+SONAME=libjanet.1.21.dylib
+else
+SONAME=libjanet.so.1.21
+endif
 
 build/c/shell.c: src/mainclient/shell.c
 	cp $< $@
@@ -238,6 +243,7 @@ build/janet-%.tar.gz: $(JANET_TARGET) \
 	mkdir -p build/$(JANET_DIST_DIR)/lib/
 	cp $(JANET_LIBRARY) $(JANET_STATIC_LIBRARY) build/$(JANET_DIST_DIR)/lib/
 	mkdir -p build/$(JANET_DIST_DIR)/man/man1/
+	cp janet.1 build/$(JANET_DIST_DIR)/man/man1/janet.1
 	mkdir -p build/$(JANET_DIST_DIR)/src/
 	cp build/c/janet.c build/c/shell.c build/$(JANET_DIST_DIR)/src/
 	cp CONTRIBUTING.md LICENSE README.md build/$(JANET_DIST_DIR)/
@@ -276,12 +282,19 @@ install: $(JANET_TARGET) $(JANET_LIBRARY) $(JANET_STATIC_LIBRARY) build/janet.pc
 	cp $(JANET_TARGET) '$(DESTDIR)$(BINDIR)/janet'
 	mkdir -p '$(DESTDIR)$(INCLUDEDIR)/janet'
 	cp -r build/janet.h '$(DESTDIR)$(INCLUDEDIR)/janet'
+	ln -sf '$(DESTDIR)$(INCLUDEDIR)/janet/janet.h' '$(DESTDIR)$(INCLUDEDIR)/janet.h'
 	mkdir -p '$(DESTDIR)$(JANET_PATH)'
 	mkdir -p '$(DESTDIR)$(LIBDIR)'
-	cp $(JANET_LIBRARY) '$(DESTDIR)$(LIBDIR)/libjanet.so.$(shell $(JANET_TARGET) -e '(print janet/version)')'
+	if test $(UNAME) = Darwin ; then \
+		cp $(JANET_LIBRARY) '$(DESTDIR)$(LIBDIR)/libjanet.$(shell $(JANET_TARGET) -e '(print janet/version)').dylib' ; \
+		ln -sf $(SONAME) '$(DESTDIR)$(LIBDIR)/libjanet.dylib' ; \
+		ln -sf libjanet.$(shell $(JANET_TARGET) -e '(print janet/version)').dylib $(DESTDIR)$(LIBDIR)/$(SONAME) ; \
+	else \
+		cp $(JANET_LIBRARY) '$(DESTDIR)$(LIBDIR)/libjanet.so.$(shell $(JANET_TARGET) -e '(print janet/version)')' ; \
+		ln -sf $(SONAME) '$(DESTDIR)$(LIBDIR)/libjanet.so' ; \
+		ln -sf libjanet.so.$(shell $(JANET_TARGET) -e '(print janet/version)') $(DESTDIR)$(LIBDIR)/$(SONAME) ; \
+	fi
 	cp $(JANET_STATIC_LIBRARY) '$(DESTDIR)$(LIBDIR)/libjanet.a'
-	ln -sf $(SONAME) '$(DESTDIR)$(LIBDIR)/libjanet.so'
-	ln -sf libjanet.so.$(shell $(JANET_TARGET) -e '(print janet/version)') $(DESTDIR)$(LIBDIR)/$(SONAME)
 	mkdir -p '$(DESTDIR)$(JANET_MANPATH)'
 	cp janet.1 '$(DESTDIR)$(JANET_MANPATH)'
 	mkdir -p '$(DESTDIR)$(JANET_PKG_CONFIG_PATH)'
@@ -303,6 +316,7 @@ install-jpm-git: $(JANET_TARGET)
 uninstall:
 	-rm '$(DESTDIR)$(BINDIR)/janet'
 	-rm -rf '$(DESTDIR)$(INCLUDEDIR)/janet'
+	-rm -rf '$(DESTDIR)$(INCLUDEDIR)/janet.h'
 	-rm -rf '$(DESTDIR)$(LIBDIR)'/libjanet.*
 	-rm '$(DESTDIR)$(JANET_PKG_CONFIG_PATH)/janet.pc'
 	-rm '$(DESTDIR)$(JANET_MANPATH)/janet.1'

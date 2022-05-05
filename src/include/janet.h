@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2021 Calvin Rose
+* Copyright (c) 2022 Calvin Rose
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to
@@ -57,8 +57,8 @@ extern "C" {
 #define JANET_BSD 1
 #endif
 
-/* Check for Mac */
-#ifdef __APPLE__
+/* Check for macOS or OS X */
+#if defined(__APPLE__) && defined(__MACH__)
 #define JANET_APPLE 1
 #endif
 
@@ -1779,7 +1779,9 @@ typedef enum {
     JANET_BINDING_NONE,
     JANET_BINDING_DEF,
     JANET_BINDING_VAR,
-    JANET_BINDING_MACRO
+    JANET_BINDING_MACRO,
+    JANET_BINDING_DYNAMIC_DEF,
+    JANET_BINDING_DYNAMIC_MACRO
 } JanetBindingType;
 
 typedef struct {

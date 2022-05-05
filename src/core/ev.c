@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2021 Calvin Rose
+* Copyright (c) 2022 Calvin Rose
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to
@@ -465,6 +465,7 @@ const JanetAbstractType janet_stream_type = {
 /* Register a fiber to resume with value */
 void janet_schedule_signal(JanetFiber *fiber, Janet value, JanetSignal sig) {
     if (fiber->gc.flags & JANET_FIBER_EV_FLAG_CANCELED) return;
+    fiber->gc.flags |= JANET_FIBER_FLAG_ROOT;
     JanetTask t = { fiber, value, sig, ++fiber->sched_id };
     if (sig == JANET_SIGNAL_ERROR) fiber->gc.flags |= JANET_FIBER_EV_FLAG_CANCELED;
     janet_q_push(&janet_vm.spawn, &t, sizeof(t));
@@ -1260,8 +1261,25 @@ JanetFiber *janet_loop1(void) {
         memset(&to, 0, sizeof(to));
         int has_timeout;
         /* Drop timeouts that are no longer needed */
-        while ((has_timeout = peek_timeout(&to)) && (to.curr_fiber == NULL) && to.fiber->sched_id != to.sched_id) {
-            pop_timeout(0);
+        while ((has_timeout = peek_timeout(&to))) {
+            if (to.curr_fiber != NULL) {
+                JanetFiberStatus s = janet_fiber_status(to.curr_fiber);
+                int is_finished = (s == JANET_STATUS_DEAD ||
+                                   s == JANET_STATUS_ERROR ||
+                                   s == JANET_STATUS_USER0 ||
+                                   s == JANET_STATUS_USER1 ||
+                                   s == JANET_STATUS_USER2 ||
+                                   s == JANET_STATUS_USER3 ||
+                                   s == JANET_STATUS_USER4);
+                if (is_finished) {
+                    pop_timeout(0);
+                    continue;
+                }
+            } else if (to.fiber->sched_id != to.sched_id) {
+                pop_timeout(0);
+                continue;
+            }
+            break;
         }
         /* Run polling implementation only if pending timeouts or pending events */
         if (janet_vm.tq_count || janet_vm.listener_count || janet_vm.extra_listeners) {
@@ -1434,7 +1452,7 @@ static void janet_epoll_sync_callback(JanetEVGenericMessage msg) {
     JanetAsyncStatus status2 = JANET_ASYNC_STATUS_NOT_DONE;
     if (state->stream->_mask & JANET_ASYNC_LISTEN_WRITE)
         status1 = state->machine(state, JANET_ASYNC_EVENT_WRITE);
-    if (state->stream->_mask & JANET_ASYNC_LISTEN_WRITE)
+    if (state->stream->_mask & JANET_ASYNC_LISTEN_READ)
         status2 = state->machine(state, JANET_ASYNC_EVENT_READ);
     if (status1 == JANET_ASYNC_STATUS_DONE ||
             status2 == JANET_ASYNC_STATUS_DONE) {
@@ -1614,9 +1632,6 @@ JanetTimestamp to_interval(const JanetTimestamp ts) {
 }
 #define JANET_KQUEUE_INTERVAL(timestamp) (to_interval((timestamp - ts_now())))
 
-
-/* TODO: make this available be we using kqueue or epoll, instead of
- * redefinining it for kqueue and epoll separately? */
 static JanetTimestamp ts_now(void) {
     struct timespec now;
     janet_assert(-1 != clock_gettime(CLOCK_MONOTONIC, &now), "failed to get time");
@@ -2219,6 +2234,10 @@ JanetAsyncStatus ev_machine_read(JanetListenerState *s, JanetAsyncEvent event) {
             } else
 #endif
             {
+                /* Some handles (not all) read from the offset in lopOverlapped
+                 * if its not set before calling `ReadFile` these streams will always read from offset 0 */
+                state->overlapped.Offset = (DWORD) state->bytes_read;
+
                 status = ReadFile(s->stream->handle, state->chunk_buf, chunk_size, NULL, &state->overlapped);
                 if (!status && (ERROR_IO_PENDING != WSAGetLastError())) {
                     if (WSAGetLastError() == ERROR_BROKEN_PIPE) {

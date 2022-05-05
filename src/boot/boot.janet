@@ -11,7 +11,7 @@
   ```
   (defn name & more)
 
-  Define a function. Equivalent to (def name (fn name [args] ...)).
+  Define a function. Equivalent to `(def name (fn name [args] ...))`.
   ```
   (fn defn [name & more]
     (def len (length more))
@@ -90,7 +90,7 @@
   nil)
 
 # Basic predicates
-(defn nan? "Check if x is NaN" [x] (not= x x))
+(defn nan? "Check if x is NaN." [x] (not= x x))
 (defn number? "Check if x is a number." [x] (= (type x) :number))
 (defn fiber? "Check if x is a fiber." [x] (= (type x) :fiber))
 (defn string? "Check if x is a string." [x] (= (type x) :string))
@@ -145,7 +145,7 @@
 (defmacro -- "Decrements the var x by 1." [x] ~(set ,x (,- ,x ,1)))
 (defmacro += "Increments the var x by n." [x n] ~(set ,x (,+ ,x ,n)))
 (defmacro -= "Decrements the var x by n." [x n] ~(set ,x (,- ,x ,n)))
-(defmacro *= "Shorthand for (set x (* x n))." [x n] ~(set ,x (,* ,x ,n)))
+(defmacro *= "Shorthand for (set x (\\* x n))." [x n] ~(set ,x (,* ,x ,n)))
 (defmacro /= "Shorthand for (set x (/ x n))." [x n] ~(set ,x (,/ ,x ,n)))
 (defmacro %= "Shorthand for (set x (% x n))." [x n] ~(set ,x (,% ,x ,n)))
 
@@ -160,13 +160,13 @@
        (,error ,(if err err "assert failure")))))
 
 (defn errorf
-  "A combination of error and string/format. Equivalent to (error (string/format fmt ;args))"
+  "A combination of `error` and `string/format`. Equivalent to `(error (string/format fmt ;args))`."
   [fmt & args]
   (error (string/format fmt ;args)))
 
 (defmacro default
-  `Define a default value for an optional argument.
-  Expands to (def sym (if (= nil sym) val sym))`
+  ``Define a default value for an optional argument.
+  Expands to `(def sym (if (= nil sym) val sym))`.``
   [sym val]
   ~(def ,sym (if (= nil ,sym) ,val ,sym)))
 
@@ -175,7 +175,7 @@
   [&])
 
 (defmacro if-not
-  "Shorthand for (if (not condition) else then)."
+  "Shorthand for `(if (not condition) else then)`."
   [condition then &opt else]
   ~(if ,condition ,else ,then))
 
@@ -185,7 +185,7 @@
   ~(if ,condition (do ,;body)))
 
 (defmacro unless
-  "Shorthand for (when (not condition) ;body). "
+  "Shorthand for `(when (not condition) ;body)`. "
   [condition & body]
   ~(if ,condition nil (do ,;body)))
 
@@ -193,7 +193,7 @@
   `Evaluates conditions sequentially until the first true condition
   is found, and then executes the corresponding body. If there are an
   odd number of forms, and no forms are matched, the last expression
-  is executed. If there are no matches, return nil.`
+  is executed. If there are no matches, returns nil.`
   [& pairs]
   (defn aux [i]
     (def restlen (- (length pairs) i))
@@ -205,9 +205,9 @@
   (aux 0))
 
 (defmacro case
-  `Select the body that equals the dispatch value. When pairs
-  has an odd number of arguments, the last is the default expression.
-  If no match is found, returns nil.`
+  ``Select the body that equals the dispatch value. When `pairs`
+  has an odd number of elements, the last is the default expression.
+  If no match is found, returns nil.``
   [dispatch & pairs]
   (def atm (idempotent? dispatch))
   (def sym (if atm dispatch (gensym)))
@@ -225,9 +225,9 @@
            (aux 0))))
 
 (defmacro let
-  `Create a scope and bind values to symbols. Each pair in bindings is
-  assigned as if with def, and the body of the let form returns the last
-  value.`
+  ``Create a scope and bind values to symbols. Each pair in `bindings` is
+  assigned as if with `def`, and the body of the `let` form returns the last
+  value.``
   [bindings & body]
   (if (odd? (length bindings)) (error "expected even number of bindings to let"))
   (def len (length bindings))
@@ -241,11 +241,11 @@
   (tuple/slice accum 0))
 
 (defmacro try
-  `Try something and catch errors. Body is any expression,
-  and catch should be a form with the first element a tuple. This tuple
+  ``Try something and catch errors. `body` is any expression,
+  and `catch` should be a form, the first element of which is a tuple. This tuple
   should contain a binding for errors and an optional binding for
-  the fiber wrapping the body. Returns the result of body if no error,
-  or the result of catch if an error.`
+  the fiber wrapping the body. Returns the result of `body` if no error,
+  or the result of `catch` if an error.``
   [body catch]
   (let [[[err fib]] catch
         f (gensym)
@@ -303,7 +303,7 @@
   ret)
 
 (defmacro with-syms
-  "Evaluates body with each symbol in syms bound to a generated, unique symbol."
+  "Evaluates `body` with each symbol in `syms` bound to a generated, unique symbol."
   [syms & body]
   (var i 0)
   (def len (length syms))
@@ -314,8 +314,8 @@
   ~(let (,;accum) ,;body))
 
 (defmacro defer
-  `Run form unconditionally after body, even if the body throws an error.
-  Will also run form if a user signal 0-4 is received.`
+  ``Run `form` unconditionally after `body`, even if the body throws an error.
+  Will also run `form` if a user signal 0-4 is received.``
   [form & body]
   (with-syms [f r]
     ~(do
@@ -327,8 +327,8 @@
          (,propagate ,r ,f)))))
 
 (defmacro edefer
-  `Run form after body in the case that body terminates abnormally (an error or user signal 0-4).
-  Otherwise, return last form in body.`
+  ``Run `form` after `body` in the case that body terminates abnormally (an error or user signal 0-4).
+  Otherwise, return last form in `body`.``
   [form & body]
   (with-syms [f r]
     ~(do
@@ -339,8 +339,8 @@
          (do ,form (,propagate ,r ,f))))))
 
 (defmacro prompt
-  `Set up a checkpoint that can be returned to. Tag should be a value
-  that is used in a return statement, like a keyword.`
+  ``Set up a checkpoint that can be returned to. `tag` should be a value
+  that is used in a `return` statement, like a keyword.``
   [tag & body]
   (with-syms [res target payload fib]
     ~(do
@@ -359,8 +359,8 @@
   (c 0))
 
 (defmacro label
-  `Set a label point that is lexically scoped. Name should be a symbol
-  that will be bound to the label.`
+  ``Set a label point that is lexically scoped. `name` should be a symbol
+  that will be bound to the label.``
   [name & body]
   ~(do
      (def ,name @"")
@@ -372,26 +372,26 @@
   (signal 0 [to value]))
 
 (defmacro with
-  `Evaluate body with some resource, which will be automatically cleaned up
-  if there is an error in body. binding is bound to the expression ctor, and
-  dtor is a function or callable that is passed the binding. If no destructor
-  (dtor) is given, will call :close on the resource.`
+  ``Evaluate `body` with some resource, which will be automatically cleaned up
+  if there is an error in `body`. `binding` is bound to the expression `ctor`, and
+  `dtor` is a function or callable that is passed the binding. If no destructor
+  (`dtor`) is given, will call :close on the resource.``
   [[binding ctor dtor] & body]
   ~(do
      (def ,binding ,ctor)
      ,(apply defer [(or dtor :close) binding] body)))
 
 (defmacro when-with
-  `Similar to with, but if binding is false or nil, returns
-  nil without evaluating the body. Otherwise, the same as with.`
+  ``Similar to with, but if binding is false or nil, returns
+  nil without evaluating the body. Otherwise, the same as `with`.``
   [[binding ctor dtor] & body]
   ~(if-let [,binding ,ctor]
      ,(apply defer [(or dtor :close) binding] body)))
 
 (defmacro if-with
-  `Similar to with, but if binding is false or nil, evaluates
+  ``Similar to `with`, but if binding is false or nil, evaluates
   the falsey path. Otherwise, evaluates the truthy path. In both cases,
-  ctor is bound to binding.`
+  `ctor` is bound to binding.``
   [[binding ctor dtor] truthy &opt falsey]
   ~(if-let [,binding ,ctor]
      ,(apply defer [(or dtor :close) binding] [truthy])
@@ -505,12 +505,12 @@
   (for-template i start stop 1 < + body))
 
 (defmacro eachk
-  "Loop over each key in ds. Returns nil."
+  "Loop over each key in `ds`. Returns nil."
   [x ds & body]
   (each-template x ds :keys body))
 
 (defmacro eachp
-  "Loop over each (key, value) pair in ds. Returns nil."
+  "Loop over each (key, value) pair in `ds`. Returns nil."
   [x ds & body]
   (each-template x ds :pairs body))
 
@@ -526,7 +526,7 @@
   ~(while true ,;body))
 
 (defmacro each
-  "Loop over each value in ds. Returns nil."
+  "Loop over each value in `ds`. Returns nil."
   [x ds & body]
   (each-template x ds :each body))
 
@@ -546,19 +546,26 @@
 
   The available verbs are:
 
-  * `:iterate` - repeatedly evaluate and bind to the expression while it is
+  * `:iterate` -- repeatedly evaluate and bind to the expression while it is
     truthy.
-  * `:range` - loop over a range. The object should be a two-element tuple with
+  
+  * `:range` -- loop over a range. The object should be a two-element tuple with
     a start and end value, and an optional positive step. The range is half
     open, [start, end).
-  * `:range-to` - same as :range, but the range is inclusive [start, end].
-  * `:down` - loop over a range, stepping downwards. The object should be a
+                  
+  * `:range-to` -- same as :range, but the range is inclusive [start, end].
+                  
+  * `:down` -- loop over a range, stepping downwards. The object should be a
     two-element tuple with a start and (exclusive) end value, and an optional
     (positive!) step size.
-  * `:down-to` - same as :down, but the range is inclusive [start, end].
-  * `:keys` - iterate over the keys in a data structure.
-  * `:pairs` - iterate over the key-value pairs as tuples in a data structure.
-  * `:in` - iterate over the values in a data structure or fiber.
+                  
+  * `:down-to` -- same as :down, but the range is inclusive [start, end].
+                  
+  * `:keys` -- iterate over the keys in a data structure.
+                  
+  * `:pairs` -- iterate over the key-value pairs as tuples in a data structure.
+                  
+  * `:in` -- iterate over the values in a data structure or fiber.
 
   `loop` also accepts conditionals to refine the looping further. Conditionals are of
   the form:
@@ -568,18 +575,24 @@
   where `:modifier` is one of a set of keywords, and `argument` is keyword-dependent.
   `:modifier` can be one of:
 
-  * `:while expression` - breaks from the current loop if `expression` is
+  * `:while expression` -- breaks from the current loop if `expression` is
     falsey.
-  * `:until expression` - breaks from the current loop if `expression` is
+                  
+  * `:until expression` -- breaks from the current loop if `expression` is
     truthy.
-  * `:let bindings` - defines bindings inside the current loop as passed to the
+                  
+  * `:let bindings` -- defines bindings inside the current loop as passed to the
     `let` macro.
-  * `:before form` - evaluates a form for a side effect before the next inner
+                  
+  * `:before form` -- evaluates a form for a side effect before the next inner
     loop.
-  * `:after form` - same as `:before`, but the side effect happens after the
+                  
+  * `:after form` -- same as `:before`, but the side effect happens after the
     next inner loop.
-  * `:repeat n` - repeats the next inner loop `n` times.
-  * `:when condition` - only evaluates the current loop body when `condition`
+                  
+  * `:repeat n` -- repeats the next inner loop `n` times.
+                  
+  * `:when condition` -- only evaluates the current loop body when `condition`
     is true.
 
   The `loop` macro always evaluates to nil.
@@ -588,25 +601,25 @@
   (loop1 body head 0))
 
 (defmacro seq
-  `Similar to loop, but accumulates the loop body into an array and returns that.
-  See loop for details.`
+  ``Similar to `loop`, but accumulates the loop body into an array and returns that.
+  See `loop` for details.``
   [head & body]
   (def $accum (gensym))
   ~(do (def ,$accum @[]) (loop ,head (array/push ,$accum (do ,;body))) ,$accum))
 
 (defmacro generate
-  `Create a generator expression using the loop syntax. Returns a fiber
-  that yields all values inside the loop in order. See loop for details.`
+  ``Create a generator expression using the `loop` syntax. Returns a fiber
+  that yields all values inside the loop in order. See `loop` for details.``
   [head & body]
   ~(fiber/new (fn [] (loop ,head (yield (do ,;body)))) :yi))
 
 (defmacro coro
-  "A wrapper for making fibers that may yield multiple values (coroutine). Same as (fiber/new (fn [] ;body) :yi)."
+  "A wrapper for making fibers that may yield multiple values (coroutine). Same as `(fiber/new (fn [] ;body) :yi)`."
   [& body]
   (tuple fiber/new (tuple 'fn '[] ;body) :yi))
 
 (defmacro fiber-fn
-  "A wrapper for making fibers. Same as (fiber/new (fn [] ;body) flags)."
+  "A wrapper for making fibers. Same as `(fiber/new (fn [] ;body) flags)`."
   [flags & body]
   (tuple fiber/new (tuple 'fn '[] ;body) flags))
 
@@ -630,9 +643,9 @@
   accum)
 
 (defmacro if-let
-  `Make multiple bindings, and if all are truthy,
-  evaluate the tru form. If any are false or nil, evaluate
-  the fal form. Bindings have the same syntax as the let macro.`
+  ``Make multiple bindings, and if all are truthy,
+  evaluate the `tru` form. If any are false or nil, evaluate
+  the `fal` form. Bindings have the same syntax as the `let` macro.``
   [bindings tru &opt fal]
   (def len (length bindings))
   (if (= 0 len) (error "expected at least 1 binding"))
@@ -661,7 +674,7 @@
   (aux 0))
 
 (defmacro when-let
-  "Same as (if-let bindings (do ;body))."
+  "Same as `(if-let bindings (do ;body))`."
   [bindings & body]
   ~(if-let ,bindings (do ,;body)))
 
@@ -690,9 +703,9 @@
   (fn [x] (not (f x))))
 
 (defn extreme
-  `Returns the most extreme value in args based on the function order.
-  order should take two values and return true or false (a comparison).
-  Returns nil if args is empty.`
+  ``Returns the most extreme value in `args` based on the function `order`.
+  `order` should take two values and return true or false (a comparison).
+  Returns nil if `args` is empty.``
   [order args]
   (var [ret] args)
   (each x args (if (order x ret) (set ret x)))
@@ -839,20 +852,20 @@
   (sorted ind (fn [x y] (< (f x) (f y)))))
 
 (defn reduce
-  `Reduce, also know as fold-left in many languages, transforms
-  an indexed type (array, tuple) with a function to produce a value by applying f to
-  each element in order. f is a function of 2 arguments, (f accum el), where
-  accum is the initial value and el is the next value in the indexed type ind.
-  f returns a value that will be used as accum in the next call to f. reduce
-  returns the value of the final call to f.`
+  ``Reduce, also know as fold-left in many languages, transforms
+  an indexed type (array, tuple) with a function to produce a value by applying `f` to
+  each element in order. `f` is a function of 2 arguments, `(f accum el)`, where
+  `accum` is the initial value and `el` is the next value in the indexed type `ind`.
+  `f` returns a value that will be used as `accum` in the next call to `f`. `reduce`
+  returns the value of the final call to `f`.``
   [f init ind]
   (var accum init)
   (each el ind (set accum (f accum el)))
   accum)
 
 (defn reduce2
-  `The 2-argument version of reduce that does not take an initialization value.
-  Instead, the first element of the array is used for initialization.`
+  ``The 2-argument version of `reduce` that does not take an initialization value.
+  Instead, the first element of the array is used for initialization.``
   [f ind]
   (var k (next ind))
   (if (= nil k) (break nil))
@@ -864,11 +877,11 @@
   res)
 
 (defn accumulate
-  `Similar to reduce, but accumulates intermediate values into an array.
-  The last element in the array is what would be the return value from reduce.
-  The init value is not added to the array (the return value will have the same
-  number of elements as ind).
-  Returns a new array.`
+  ``Similar to `reduce`, but accumulates intermediate values into an array.
+  The last element in the array is what would be the return value from `reduce`.
+  The `init` value is not added to the array (the return value will have the same
+  number of elements as `ind`).
+  Returns a new array.``
   [f init ind]
   (var res init)
   (def ret @[])
@@ -876,9 +889,9 @@
   ret)
 
 (defn accumulate2
-  `The 2-argument version of accumulate that does not take an initialization value.
-  The first value in ind will be added to the array as is, so the length of the
-  return value will be (length ind).`
+  ``The 2-argument version of `accumulate` that does not take an initialization value.
+  The first value in `ind` will be added to the array as is, so the length of the
+  return value will be `(length ind)`.``
   [f ind]
   (var k (next ind))
   (def ret @[])
@@ -947,8 +960,8 @@
   res)
 
 (defn mapcat
-  `Map a function over every element in an array or tuple and
-  use array to concatenate the results.`
+  ``Map a function over every element in an array or tuple and
+  use `array/concat` to concatenate the results.``
   [f ind]
   (def res @[])
   (each x ind
@@ -956,8 +969,8 @@
   res)
 
 (defn filter
-  `Given a predicate, take only elements from an array or tuple for
-  which (pred element) is truthy. Returns a new array.`
+  ``Given a predicate, take only elements from an array or tuple for
+  which `(pred element)` is truthy. Returns a new array.``
   [pred ind]
   (def res @[])
   (each item ind
@@ -966,8 +979,8 @@
   res)
 
 (defn count
-  `Count the number of items in ind for which (pred item)
-  is true.`
+  ``Count the number of items in `ind` for which `(pred item)`
+  is true.``
   [pred ind]
   (var counter 0)
   (each item ind
@@ -989,7 +1002,7 @@
 
 (defn range
   `Create an array of values [start, end) with a given step.
-  With one argument returns a range [0, end). With two arguments, returns
+  With one argument, returns a range [0, end). With two arguments, returns
   a range [start, end). With three, returns a range with optional step size.`
   [& args]
   (case (length args)
@@ -1012,7 +1025,7 @@
     (error "expected 1 to 3 arguments to range")))
 
 (defn find-index
-  `Find the index of indexed type for which pred is true. Returns dflt if not found.`
+  ``Find the index of indexed type for which `pred` is true. Returns `dflt` if not found.``
   [pred ind &opt dflt]
   (var k nil)
   (var ret dflt)
@@ -1026,8 +1039,8 @@
   ret)
 
 (defn find
-  `Find the first value in an indexed collection that satisfies a predicate. Returns
-  dflt if not found.`
+  ``Find the first value in an indexed collection that satisfies a predicate. Returns
+  `dflt` if not found.``
   [pred ind &opt dflt]
   (var k nil)
   (var ret dflt)
@@ -1041,9 +1054,9 @@
   ret)
 
 (defn index-of
-  `Find the first key associated with a value x in a data structure, acting like a reverse lookup.
+  ``Find the first key associated with a value x in a data structure, acting like a reverse lookup.
   Will not look at table prototypes.
-  Returns dflt if not found.`
+  Returns `dflt` if not found.``
   [x ind &opt dflt]
   (var k (next ind nil))
   (var ret dflt)
@@ -1103,8 +1116,8 @@
     (take-until-fallback pred ind)))
 
 (defn take-while
-  `Given a predicate, take only elements from a fiber, indexed or bytes type that satisfy
-  the predicate, and abort on first failure. Returns a new array, tuple or string, respectively.`
+  `Given a predicate, take only elements from a fiber, indexed, or bytes type that satisfy
+  the predicate, and abort on first failure. Returns a new array, tuple, or string, respectively.`
   [pred ind]
   (take-until (complement pred) ind))
 
@@ -1137,8 +1150,8 @@
   (drop-until (complement pred) ind))
 
 (defn juxt*
-  `Returns the juxtaposition of functions. In other words,
-  ((juxt* a b c) x) evaluates to [(a x) (b x) (c x)].`
+  ``Returns the juxtaposition of functions. In other words,
+  `((juxt* a b c) x)` evaluates to `[(a x) (b x) (c x)]`.``
   [& funs]
   (fn [& args]
     (def ret @[])
@@ -1147,7 +1160,7 @@
     (tuple/slice ret 0)))
 
 (defmacro juxt
-  "Macro form of juxt*. Same behavior but more efficient."
+  "Macro form of `juxt*`. Same behavior but more efficient."
   [& funs]
   (def parts @['tuple])
   (def $args (gensym))
@@ -1155,12 +1168,49 @@
     (array/push parts (tuple apply f $args)))
   (tuple 'fn (tuple '& $args) (tuple/slice parts 0)))
 
+(defmacro defdyn
+  ``Define an alias for a keyword that is used as a dynamic binding. The
+  alias is a normal, lexically scoped binding that can be used instead of
+  a keyword to prevent typos. `defdyn` does not set dynamic bindings or otherwise
+  replace `dyn` and `setdyn`. The alias _must_ start and end with the `*` character, usually
+  called "earmuffs".``
+  [alias & more]
+  (assert (symbol? alias) "alias must be a symbol")
+  (assert (and (> (length alias) 2) (= 42 (first alias) (last alias))) "name must have leading and trailing '*' characters")
+  (def prefix (dyn :defdyn-prefix))
+  (def kw (keyword prefix (slice alias 1 -2)))
+  ~(def ,alias :dyn ,;more ,kw))
+
+(defdyn *defdyn-prefix* ``Optional namespace prefix to add to keywords declared with `defdyn`.
+  Use this to prevent keyword collisions between dynamic bindings.``)
+(defdyn *out* "Where normal print functions print output to.")
+(defdyn *err* "Where error printing prints output to.")
+(defdyn *redef* "When set, allow dynamically rebinding top level defs. Will slow generated code and is intended to be used for development.")
+(defdyn *debug* "Enables a built in debugger on errors and other useful features for debugging in a repl.")
+(defdyn *exit* "When set, will cause the current context to complete. Can be set to exit from repl (or file), for example.")
+(defdyn *exit-value* "Set the return value from `run-context` upon an exit. By default, `run-context` will return nil.")
+
+(defdyn *macro-form*
+  "Inside a macro, is bound to the source form that invoked the macro")
+
+(defdyn *lint-error*
+  "The current lint error level. The error level is the lint level at which compilation will exit with an error and not continue.")
+
+(defdyn *lint-warn*
+  "The current lint warning level. The warning level is the lint level at which and error will be printed but compilation will continue as normal.")
+
+(defdyn *lint-levels*
+  "A table of keyword alias to numbers denoting a lint level. Can be used to provided custom aliases for numeric lint levels.")
+
+(defdyn *current-file*
+  "Bound to the name of the currently compiling file.")
+
 (defmacro tracev
-  `Print a value and a description of the form that produced that value to
-  stderr. Evaluates to x.`
+  `Print to stderr a value and a description of the form that produced that value.
+  Evaluates to x.`
   [x]
-  (def [l c] (tuple/sourcemap (dyn :macro-form ())))
-  (def cf (dyn :current-file))
+  (def [l c] (tuple/sourcemap (dyn *macro-form* ())))
+  (def cf (dyn *current-file*))
   (def fmt-1 (if cf (string/format "trace [%s]" cf) "trace"))
   (def fmt-2 (if (or (neg? l) (neg? c)) ":" (string/format " on line %d, column %d:" l c)))
   (def fmt (string fmt-1 fmt-2 " %j is "))
@@ -1172,9 +1222,9 @@
      ,s))
 
 (defmacro ->
-  `Threading macro. Inserts x as the second value in the first form
-  in forms, and inserts the modified first form into the second form
-  in the same manner, and so on. Useful for expressing pipelines of data.`
+  ``Threading macro. Inserts x as the second value in the first form
+  in `forms`, and inserts the modified first form into the second form
+  in the same manner, and so on. Useful for expressing pipelines of data.``
   [x & forms]
   (defn fop [last n]
     (def [h t] (if (= :tuple (type n))
@@ -1185,9 +1235,9 @@
   (reduce fop x forms))
 
 (defmacro ->>
-  `Threading macro. Inserts x as the last value in the first form
-  in forms, and inserts the modified first form into the second form
-  in the same manner, and so on. Useful for expressing pipelines of data.`
+  ``Threading macro. Inserts x as the last value in the first form
+  in `forms`, and inserts the modified first form into the second form
+  in the same manner, and so on. Useful for expressing pipelines of data.``
   [x & forms]
   (defn fop [last n]
     (def [h t] (if (= :tuple (type n))
@@ -1198,11 +1248,11 @@
   (reduce fop x forms))
 
 (defmacro -?>
-  `Short circuit threading macro. Inserts x as the second value in the first form
-  in forms, and inserts the modified first form into the second form
+  ``Short circuit threading macro. Inserts x as the second value in the first form
+  in `forms`, and inserts the modified first form into the second form
   in the same manner, and so on. The pipeline will return nil
   if an intermediate value is nil.
-  Useful for expressing pipelines of data.`
+  Useful for expressing pipelines of data.``
   [x & forms]
   (defn fop [last n]
     (def [h t] (if (= :tuple (type n))
@@ -1214,11 +1264,11 @@
   (reduce fop x forms))
 
 (defmacro -?>>
-  `Short circuit threading macro. Inserts x as the last value in the first form
-  in forms, and inserts the modified first form into the second form
+  ``Short circuit threading macro. Inserts x as the last value in the first form
+  in `forms`, and inserts the modified first form into the second form
   in the same manner, and so on. The pipeline will return nil
   if an intermediate value is nil.
-  Useful for expressing pipelines of data.`
+  Useful for expressing pipelines of data.``
   [x & forms]
   (defn fop [last n]
     (def [h t] (if (= :tuple (type n))
@@ -1241,10 +1291,10 @@
   ret)
 
 (defn walk
-  `Iterate over the values in ast and apply f
+  ``Iterate over the values in ast and apply `f`
   to them. Collect the results in a data structure. If ast is not a
   table, struct, array, or tuple,
-  returns form.`
+  returns form.``
   [f form]
   (case (type form)
     :table (walk-dict f form)
@@ -1257,20 +1307,20 @@
     form))
 
 (defn postwalk
-  `Do a post-order traversal of a data structure and call (f x)
-  on every visitation.`
+  ``Do a post-order traversal of a data structure and call `(f x)`
+  on every visitation.``
   [f form]
   (f (walk (fn [x] (postwalk f x)) form)))
 
 (defn prewalk
-  "Similar to postwalk, but do pre-order traversal."
+  "Similar to `postwalk`, but do pre-order traversal."
   [f form]
   (walk (fn [x] (prewalk f x)) (f form)))
 
 (defmacro as->
-  `Thread forms together, replacing as in forms with the value
-  of the previous form. The first for is the value x. Returns the
-  last value.`
+  ``Thread forms together, replacing `as` in `forms` with the value
+  of the previous form. The first form is the value x. Returns the
+  last value.``
   [x as & forms]
   (var prev x)
   (each form forms
@@ -1280,10 +1330,10 @@
   prev)
 
 (defmacro as?->
-  `Thread forms together, replacing as in forms with the value
-  of the previous form. The first for is the value x. If any
+  ``Thread forms together, replacing `as` in `forms` with the value
+  of the previous form. The first form is the value x. If any
   intermediate values are falsey, return nil; otherwise, returns the
-  last value.`
+  last value.``
   [x as & forms]
   (var prev x)
   (each form forms
@@ -1296,7 +1346,7 @@
   `Run a block of code in a new fiber that has some
   dynamic bindings set. The fiber will not mask errors
   or signals, but the dynamic bindings will be properly
-  unset, as dynamic bindings are fiber local.`
+  unset, as dynamic bindings are fiber-local.`
   [bindings & body]
   (def dyn-forms
     (seq [i :range [0 (length bindings) 2]]
@@ -1304,8 +1354,8 @@
   ~(,resume (,fiber/new (fn [] ,;dyn-forms ,;body) :p)))
 
 (defmacro with-vars
-  `Evaluates body with each var in vars temporarily bound. Similar signature to
-  let, but each binding must be a var.`
+  ``Evaluates `body` with each var in `vars` temporarily bound. Similar signature to
+  `let`, but each binding must be a var.``
   [vars & body]
   (def len (length vars))
   (unless (even? len) (error "expected even number of argument to vars"))
@@ -1328,8 +1378,8 @@
     (fn [& r] (f ;more ;r))))
 
 (defn every?
-  `Returns true if each value in is truthy, otherwise the first
-  falsey value.`
+  ``Returns true if each value in `ind` is truthy, otherwise returns the first
+  falsey value.``
   [ind]
   (var res true)
   (loop [x :in ind :while res]
@@ -1337,8 +1387,7 @@
   res)
 
 (defn any?
-  `Returns the first truthy value in ind, otherwise nil.
-  falsey value.`
+  ``Returns the first truthy value in `ind`, otherwise nil.``
   [ind]
   (var res nil)
   (loop [x :in ind :until res]
@@ -1361,7 +1410,8 @@
 
 (defn reverse
   `Reverses the order of the elements in a given array or tuple and returns
-  a new array. If string or buffer is provided function returns array of chars reversed.`
+  a new array. If a string or buffer is provided, returns an array of its
+  byte values, reversed.`
   [t]
   (def len (length t))
   (var n (- len 1))
@@ -1372,9 +1422,9 @@
   ret)
 
 (defn invert
-  ``Returns a table where the keys of an associative data structure
-  are the values, and the values are the keys. If multiple keys in `ds`
-  are mapped to the same value, only one of those values will
+  ``Given an associative data structure `ds`, returns a new table where the
+  keys of `ds` are the values, and the values are the keys. If multiple keys
+  in `ds` are mapped to the same value, only one of those values will
   become a key in the returned table.``
   [ds]
   (def ret @{})
@@ -1398,18 +1448,18 @@
   res)
 
 (defn get-in
-  `Access a value in a nested data structure. Looks into the data structure via
-  a sequence of keys.`
+  ``Access a value in a nested data structure. Looks into the data structure via
+  a sequence of keys. If value is not found, and `dflt` is provided, returns `dflt`.``
   [ds ks &opt dflt]
   (var d ds)
   (loop [k :in ks :while (not (nil? d))] (set d (get d k)))
   (if (= nil d) dflt d))
 
 (defn update-in
-  `Update a value in a nested data structure by applying f to the current value.
-  Looks into the data structure via
-  a sequence of keys. Missing data structures will be replaced with tables. Returns
-  the modified, original data structure.`
+  ``Update a value in a nested data structure `ds`. Looks into `ds` via a sequence of keys,
+  and replaces the value found there with `f` applied to that value.
+  Missing data structures will be replaced with tables. Returns
+  the modified, original data structure.``
   [ds ks f & args]
   (var d ds)
   (def len-1 (- (length ks) 1))
@@ -1428,10 +1478,9 @@
   ds)
 
 (defn put-in
-  `Put a value into a nested data structure.
-  Looks into the data structure via
+  ``Put a value into a nested data structure `ds`. Looks into `ds` via
   a sequence of keys. Missing data structures will be replaced with tables. Returns
-  the modified, original data structure.`
+  the modified, original data structure.``
   [ds ks v]
   (var d ds)
   (def len-1 (- (length ks) 1))
@@ -1450,17 +1499,16 @@
   ds)
 
 (defn update
-  ``Accepts a key argument and passes its associated value to a function.
-  The key is then re-associated to the function's return value. Returns the updated
-  data structure `ds`.``
+  ``For a given key in data structure `ds`, replace its corresponding value with the
+  result of calling `func` on that value. If `args` are provided, they will be passed
+  along to `func` as well. Returns `ds`, updated.``
   [ds key func & args]
   (def old (get ds key))
   (put ds key (func old ;args)))
 
 (defn merge-into
-  "Merges multiple tables/structs into a table. If a key appears in more than one
-  collection, then later values replace any previous ones.
-  Returns the original table."
+  ``Merges multiple tables/structs into table `tab`. If a key appears in more than one
+  collection in `colls`, then later values replace any previous ones. Returns `tab`.``
   [tab & colls]
   (loop [c :in colls
          key :keys c]
@@ -1468,9 +1516,9 @@
   tab)
 
 (defn merge
-  `Merges multiple tables/structs to one. If a key appears in more than one
-  collection, then later values replace any previous ones.
-  Returns a new table.`
+  ``Merges multiple tables/structs into one new table. If a key appears in more than one
+  collection in `colls`, then later values replace any previous ones.
+  Returns the new table.``
   [& colls]
   (def container @{})
   (loop [c :in colls
@@ -1509,7 +1557,7 @@
   arr)
 
 (defn frequencies
-  "Get the number of occurrences of each value in a indexed structure."
+  "Get the number of occurrences of each value in an indexed data structure."
   [ind]
   (def freqs @{})
   (each x ind
@@ -1518,9 +1566,10 @@
   freqs)
 
 (defn group-by
-  ``Group elements of `ind` by a function `f` and put the results into a table. The keys of
-  the table are the distinct return values of `f`, and the values are arrays of all elements of `ind`
-  that are equal to that value.``
+  ``Group elements of `ind` by a function `f` and put the results into a new table. The keys of
+  the table are the distinct return values from calling `f` on the elements of `ind`. The values
+  of the table are arrays of all elements of `ind` for which `f` called on the element equals
+  that corresponding key.``
   [f ind]
   (def ret @{})
   (each x ind
@@ -1548,7 +1597,7 @@
   ret)
 
 (defn interleave
-  "Returns an array of the first elements of each col, then the second, etc."
+  "Returns an array of the first elements of each col, then the second elements, etc."
   [& cols]
   (def res @[])
   (def ncol (length cols))
@@ -1560,7 +1609,7 @@
   res)
 
 (defn distinct
-  "Returns an array of the deduplicated values in xs."
+  "Returns an array of the deduplicated values in `xs`."
   [xs]
   (def ret @[])
   (def seen @{})
@@ -1568,8 +1617,8 @@
   ret)
 
 (defn flatten-into
-  `Takes a nested array (tree), and appends the depth first traversal of
-  that array to an array 'into'. Returns array into.`
+  ``Takes a nested array (tree) `xs` and appends the depth first traversal of
+  `xs` to array `into`. Returns `into`.``
   [into xs]
   (each x xs
     (if (indexed? x)
@@ -1578,22 +1627,22 @@
   into)
 
 (defn flatten
-  `Takes a nested array (tree), and returns the depth first traversal of
-  that array. Returns a new array.`
+  ``Takes a nested array (tree) `xs` and returns the depth first traversal of
+  it. Returns a new array.``
   [xs]
   (flatten-into @[] xs))
 
 (defn kvs
-  `Takes a table or struct and returns and array of key value pairs
-  like @[k v k v ...]. Returns a new array.`
+  ``Takes a table or struct and returns and array of key value pairs
+  like `@[k v k v ...]`. Returns a new array.``
   [dict]
   (def ret @[])
   (loop [k :keys dict] (array/push ret k (in dict k)))
   ret)
 
 (defn from-pairs
-  ``Takes a sequence of pairs and creates a table from each pair. The inverse of
-  `pairs` on a table.``
+  ``Takes a sequence of pairs and creates a table from each pair. It is the inverse of
+  `pairs` on a table. Returns a new table.``
   [ps]
   (def ret @{})
   (each [k v] ps
@@ -1601,8 +1650,8 @@
   ret)
 
 (defn interpose
-  `Returns a sequence of the elements of ind separated by
-  sep. Returns a new array.`
+  ``Returns a sequence of the elements of `ind` separated by
+  `sep`. Returns a new array.``
   [sep ind]
   (def len (length ind))
   (def ret (array/new (- (* 2 len) 1)))
@@ -1614,8 +1663,8 @@
   ret)
 
 (defn partition
-  `Partition an indexed data structure into tuples
-  of size n. Returns a new array.`
+  ``Partition an indexed data structure `ind` into tuples
+  of size `n`. Returns a new array.``
   [n ind]
   (var i 0) (var nextn n)
   (def len (length ind))
@@ -1635,8 +1684,7 @@
 ###
 
 (defn slurp
-  `Read all data from a file with name path
-  and then close the file.`
+  ``Read all data from a file with name `path` and then close the file.``
   [path]
   (def f (file/open path :rb))
   (if-not f (error (string "could not open file " path)))
@@ -1645,8 +1693,7 @@
   contents)
 
 (defn spit
-  `Write contents to a file at path.
-  Can optionally append to the file.`
+  ``Write `contents` to a file at `path`. Can optionally append to the file.``
   [path contents &opt mode]
   (default mode :wb)
   (def f (file/open path mode))
@@ -1655,10 +1702,13 @@
   (file/close f)
   nil)
 
+(defdyn *pretty-format*
+  "Format specifier for the `pp` function")
+
 (defn pp
-  `Pretty print to stdout or (dyn :out). The format string used is (dyn :pretty-format "%q").`
+  ``Pretty-print to stdout or `(dyn *out*)`. The format string used is `(dyn *pretty-format* "%q")`.``
   [x]
-  (printf (dyn :pretty-format "%q") x)
+  (printf (dyn *pretty-format* "%q") x)
   (flush))
 
 ###
@@ -1678,6 +1728,7 @@
 
   * array or bracket tuple -- an array or bracket tuple will match only if
     all of its elements match the corresponding elements in `x`.
+    Use `& rest` at the end of an array or bracketed tuple to bind all remaining values to `rest`.
 
   * table or struct -- a table or struct will match if all values match with
     the corresponding values in `x`.
@@ -1751,10 +1802,26 @@
       (break)
 
       # match data structure template
-      (or isarr (= t :struct) (= t :table))
+      (or (= t :struct) (= t :table))
+      (eachp [i sub-pattern] pattern
+        (visit-pattern-1 b2g s i sub-pattern))
+
+      isarr
       (do
-        (when isarr (get-length-sym s))
+        (get-length-sym s)
         (eachp [i sub-pattern] pattern
+          (when (= sub-pattern '&)
+            (when (<= (length pattern) (inc i))
+              (errorf "expected symbol following & in pattern"))
+
+            (when (< (+ i 2) (length pattern))
+              (errorf "expected a single symbol follow '& in pattern, found %q" (slice pattern (inc i))))
+
+            (when (not= (type (pattern (inc i))) :symbol)
+              (errorf "expected symbol following & in pattern, found %q" (pattern (inc i))))
+
+            (put b2g (pattern (inc i)) @[[slice s i]])
+            (break))
           (visit-pattern-1 b2g s i sub-pattern)))
 
       # match global unification
@@ -1774,14 +1841,24 @@
     (def isarr (or (= t :array) (and (= t :tuple) (= (tuple/type pattern) :brackets))))
     (when isarr
       (array/push anda (get-length-sym s))
-      (array/push anda [<= (length pattern) (get-length-sym s)]))
+      (def pattern-len
+        (if-let [ rest-idx (find-index (fn [x] (= x '&)) pattern) ]
+          rest-idx
+          (length pattern)))
+      (array/push anda [<= pattern-len (get-length-sym s)]))
     (cond
 
       # match data structure template
-      (or isarr (= t :struct) (= t :table))
+      (or (= t :struct) (= t :table))
       (eachp [i sub-pattern] pattern
-        (when (not isarr)
-          (array/push anda [not= nil (get-sym s i)]))
+        (array/push anda [not= nil (get-sym s i)])
+        (visit-pattern-2 anda gun preds s i sub-pattern))
+      
+      isarr
+      (eachp [i sub-pattern] pattern
+        # stop recursing to sub-patterns if the rest sigil is found
+        (when (= sub-pattern '&)
+          (break))
         (visit-pattern-2 anda gun preds s i sub-pattern))
 
       # match local binding
@@ -1855,13 +1932,17 @@
 ###
 ###
 
+(defdyn *macro-lints*
+  ``Bound to an array of lint messages that will be reported by the compiler inside a macro.
+  To indicate an error or warning, a macro author should use `maclintf`.``)
+
 (defn maclintf
   ``When inside a macro, call this function to add a linter warning. Takes
-  a `fmt` argument like `string/format` which is used to format the message.``
+  a `fmt` argument like `string/format`, which is used to format the message.``
   [level fmt & args]
-  (def lints (dyn :macro-lints))
+  (def lints (dyn *macro-lints*))
   (when lints
-    (def form (dyn :macro-form))
+    (def form (dyn *macro-form*))
     (def [l c] (if (tuple? form) (tuple/sourcemap form) [nil nil]))
     (def l (if-not (= -1 l) l))
     (def c (if-not (= -1 c) c))
@@ -1871,7 +1952,7 @@
 
 (defn macex1
   ``Expand macros in a form, but do not recursively expand macros.
-  See `macex` docs for info on on-binding.``
+  See `macex` docs for info on `on-binding`.``
   [x &opt on-binding]
 
   (when on-binding
@@ -1952,11 +2033,11 @@
     (def h (in t 0))
     (def s (in specs h))
     (def entry (or (dyn h) {}))
-    (def m (entry :value))
-    (def m? (entry :macro))
+    (def m (do (def r (get entry :ref)) (if r (in r 0) (get entry :value))))
+    (def m? (in entry :macro))
     (cond
       s (s t)
-      m? (do (setdyn :macro-form t) (m ;(tuple/slice t 1)))
+      m? (do (setdyn *macro-form* t) (m ;(tuple/slice t 1)))
       (tuple/slice (map recur t))))
 
   (def ret
@@ -1971,24 +2052,24 @@
   ret)
 
 (defn all
-  `Returns true if all xs are truthy, otherwise the result of first
-  falsey predicate value, (pred x).`
+  ``Returns true if all `xs` are truthy, otherwise the result of first
+  falsey predicate value, `(pred x)`.``
   [pred xs]
   (var ret true)
   (loop [x :in xs :while ret] (set ret (pred x)))
   ret)
 
 (defn some
-  `Returns nil if all xs are false or nil, otherwise returns the result of the
-  first truthy predicate, (pred x).`
+  ``Returns nil if all `xs` are false or nil, otherwise returns the result of the
+  first truthy predicate, `(pred x)`.``
   [pred xs]
   (var ret nil)
   (loop [x :in xs :while (not ret)] (if-let [y (pred x)] (set ret y)))
   ret)
 
 (defn deep-not=
-  `Like not=, but mutable types (arrays, tables, buffers) are considered
-  equal if they have identical structure. Much slower than not=.`
+  ``Like `not=`, but mutable types (arrays, tables, buffers) are considered
+  equal if they have identical structure. Much slower than `not=`.``
   [x y]
   (def tx (type x))
   (or
@@ -2002,8 +2083,8 @@
       (not= x y))))
 
 (defn deep=
-  `Like =, but mutable types (arrays, tables, buffers) are considered
-  equal if they have identical structure. Much slower than =.`
+  ``Like `=`, but mutable types (arrays, tables, buffers) are considered
+  equal if they have identical structure. Much slower than `=`.``
   [x y]
   (not (deep-not= x y)))
 
@@ -2023,11 +2104,11 @@
     x))
 
 (defn macex
-  `Expand macros completely.
-  on-binding is an optional callback whenever a normal symbolic binding
-  is encounter. This allows macros to easily see all bindings use by their
-  arguments by calling macex on their contents. The binding itself is also
-  replaced by the value returned by on-binding within the expand macro.`
+  ``Expand macros completely.
+  `on-binding` is an optional callback for whenever a normal symbolic binding
+  is encountered. This allows macros to easily see all bindings used by their
+  arguments by calling `macex` on their contents. The binding itself is also
+  replaced by the value returned by `on-binding` within the expanded macro.``
   [x &opt on-binding]
   (var previous x)
   (var current (macex1 x on-binding))
@@ -2040,10 +2121,10 @@
   current)
 
 (defmacro varfn
-  `Create a function that can be rebound. varfn has the same signature
-  as defn, but defines functions in the environment as vars. If a var 'name'
+  ``Create a function that can be rebound. `varfn` has the same signature
+  as `defn`, but defines functions in the environment as vars. If a var `name`
   already exists in the environment, it is rebound to the new function. Returns
-  a function.`
+  a function.``
   [name & body]
   (def expansion (apply defn name body))
   (def fbody (last expansion))
@@ -2071,17 +2152,17 @@
 
 (defmacro short-fn
   ```
-  Shorthand for fn. Arguments are given as $n, where n is the 0-indexed
-  argument of the function. $ is also an alias for the first (index 0) argument.
-  The $& symbol will make the anonymous function variadic if it appears in the
-  body of the function - it can be combined with positional arguments.
+  Shorthand for `fn`. Arguments are given as `$n`, where `n` is the 0-indexed
+  argument of the function. `$` is also an alias for the first (index 0) argument.
+  The `$&` symbol will make the anonymous function variadic if it appears in the
+  body of the function, and can be combined with positional arguments.
 
   Example usage:
 
-    * (short-fn (+ $ $)) - A function that doubles its arguments.
-    * (short-fn (string $0 $1)) - accepting multiple args
-    * |(+ $ $) - use pipe reader macro for terse function literals
-    * |(+ $&) - variadic functions
+      (short-fn (+ $ $)) # A function that doubles its arguments.
+      (short-fn (string $0 $1)) # accepting multiple args.
+      |(+ $ $) # use pipe reader macro for terse function literals.
+      |(+ $&)  # variadic functions
   ```
   [arg]
   (var max-param-seen -1)
@@ -2118,6 +2199,10 @@
 ###
 ###
 
+(defdyn *peg-grammar*
+  ``The implicit base grammar used when compiling PEGs. Any undefined keywords
+  found when compiling a peg will use lookup in this table (if defined).``)
+
 (def default-peg-grammar
   `The default grammar used for pegs. This grammar defines several common patterns
   that should make it easier to write more complex patterns.`
@@ -2142,7 +2227,7 @@
      :s* (any :s)
      :h* (any :h)})
 
-(setdyn :peg-grammar default-peg-grammar)
+(setdyn *peg-grammar* default-peg-grammar)
 
 ###
 ###
@@ -2150,10 +2235,13 @@
 ###
 ###
 
+(defdyn *syspath*
+  "Path of directory to load system modules from.")
+
 # Initialize syspath
 (each [k v] (partition 2 (tuple/slice boot/args 2))
   (case k
-    "JANET_PATH" (setdyn :syspath v)))
+    "JANET_PATH" (setdyn *syspath* v)))
 
 (defn make-env
   `Create a new environment table. The new environment
@@ -2164,10 +2252,13 @@
   (def newenv (table/setproto @{} parent))
   newenv)
 
+(defdyn *err-color*
+  "Whether or not to turn on error coloring in stacktraces and other error messages.")
+
 (defn bad-parse
   "Default handler for a parse error."
   [p where]
-  (def ec (dyn :err-color))
+  (def ec (dyn *err-color*))
   (def [line col] (:where p))
   (eprint
     (if ec "\e[31m" "")
@@ -2182,28 +2273,29 @@
   (eflush))
 
 (defn- print-line-col
-  "Print the source code at a line, column in a source file. If unable to open
-  the file, prints nothing."
+  ``Print the source code at a line, column in a source file. If unable to open
+  the file, prints nothing.``
   [where line col]
   (if-not line (break))
+  (unless (string? where) (break))
   (when-with [f (file/open where :r)]
     (def source-code (file/read f :all))
     (var index 0)
     (repeat (dec line)
        (if-not index (break))
-       (set index (inc (string/find "\n" source-code index))))
+       (set index (string/find "\n" source-code index))
+       (if index (++ index)))
     (when index
       (def line-end (string/find "\n" source-code index))
       (eprint "  " (string/slice source-code index line-end))
       (when col
         (+= index col)
-        (eprint (string/repeat " " (inc col)) "^"))
-      (eflush))))
+        (eprint (string/repeat " " (inc col)) "^")))))
 
 (defn warn-compile
-  "Default handler for a compile warning"
+  "Default handler for a compile warning."
   [msg level where &opt line col]
-  (def ec (dyn :err-color))
+  (def ec (dyn *err-color*))
   (eprin
     (if ec "\e[33m" "")
     where
@@ -2221,7 +2313,7 @@
 (defn bad-compile
   "Default handler for a compile error."
   [msg macrof where &opt line col]
-  (def ec (dyn :err-color))
+  (def ec (dyn *err-color*))
   (eprin
     (if ec "\e[31m" "")
     where
@@ -2239,8 +2331,8 @@
   (eflush))
 
 (defn curenv
-  `Get the current environment table. Same as (fiber/getenv (fiber/current)). If n
-  is provided, gets the nth prototype of the environment table.`
+  ``Get the current environment table. Same as `(fiber/getenv (fiber/current))`. If `n`
+  is provided, gets the nth prototype of the environment table.``
   [&opt n]
   (var e (fiber/getenv (fiber/current)))
   (if n (repeat n (if (= nil e) (break)) (set e (table/getproto e))))
@@ -2257,21 +2349,36 @@
   ```
   Run a context. This evaluates expressions in an environment,
   and encapsulates the parsing, compilation, and evaluation.
-  Returns (in environment :exit-value environment) when complete.
-  opts is a table or struct of options. The options are as follows:
+  Returns `(in environment :exit-value environment)` when complete.
+  `opts` is a table or struct of options. The options are as follows:
 
-    * `:chunks` - callback to read into a buffer - default is getline
-    * `:on-parse-error` - callback when parsing fails - default is bad-parse
-    * `:env` - the environment to compile against - default is the current env
-    * `:source` - source path for better errors (use keywords for non-paths) - default is :<anonymous>
-    * `:on-compile-error` - callback when compilation fails - default is bad-compile
-    * `:on-compile-warning` - callback for any linting error - default is warn-compile
-    * `:evaluator` - callback that executes thunks. Signature is (evaluator thunk source env where)
-    * `:on-status` - callback when a value is evaluated - default is debug/stacktrace.
-    * `:fiber-flags` - what flags to wrap the compilation fiber with. Default is :ia.
-    * `:expander` - an optional function that is called on each top level form before being compiled.
-    * `:parser` - provide a custom parser that implements the same interface as Janet's built-in parser.
-    * `:read` - optional function to get the next form, called like `(read env source)`.
+    * `:chunks` -- callback to read into a buffer - default is getline
+      
+    * `:on-parse-error` -- callback when parsing fails - default is bad-parse
+      
+    * `:env` -- the environment to compile against - default is the current env
+      
+    * `:source` -- source path for better errors (use keywords for non-paths) - default
+      is :<anonymous>
+      
+    * `:on-compile-error` -- callback when compilation fails - default is bad-compile
+      
+    * `:on-compile-warning` -- callback for any linting error - default is warn-compile
+      
+    * `:evaluator` -- callback that executes thunks. Signature is (evaluator thunk source
+      env where)
+      
+    * `:on-status` -- callback when a value is evaluated - default is debug/stacktrace.
+      
+    * `:fiber-flags` -- what flags to wrap the compilation fiber with. Default is :ia.
+      
+    * `:expander` -- an optional function that is called on each top level form before
+      being compiled.
+      
+    * `:parser` -- provide a custom parser that implements the same interface as Janet's
+      built-in parser.
+      
+    * `:read` -- optional function to get the next form, called like `(read env source)`.
       Overrides all parsing.
   ```
   [opts]
@@ -2301,7 +2408,7 @@
   (var where default-where)
 
   (if (string? where)
-    (put env :current-file where))
+    (put env *current-file* where))
 
   # Evaluate 1 source form in a protected manner
   (def lints @[])
@@ -2316,9 +2423,9 @@
           (def res (compile source env where lints))
           (unless (empty? lints)
             # Convert lint levels to numbers.
-            (def levels (get env :lint-levels lint-levels))
-            (def lint-error (get env :lint-error))
-            (def lint-warning (get env :lint-warn))
+            (def levels (get env *lint-levels* lint-levels))
+            (def lint-error (get env *lint-error*))
+            (def lint-warning (get env *lint-warn*))
             (def lint-error (or (get levels lint-error lint-error) 0))
             (def lint-warning (or (get levels lint-warning lint-warning) 2))
             (each [level line col msg] lints
@@ -2383,7 +2490,7 @@
       (do
         (set where new-where)
         (if (string? new-where)
-          (put env :current-file new-where)))
+          (put env *current-file* new-where)))
 
       (do
         (var pindex 0)
@@ -2413,17 +2520,16 @@
   (in env :exit-value env))
 
 (defn quit
-  `Tries to exit from the current repl or context. Does not always exit the application.
-  Works by setting the :exit dynamic binding to true. Passing a non-nil value here will cause the outer
-  run-context to return that value.`
+  ``Tries to exit from the current repl or context. Does not always exit the application.
+  Works by setting the :exit dynamic binding to true. Passing a non-nil `value` here will cause the outer
+  run-context to return that value.``
   [&opt value]
   (setdyn :exit true)
   (setdyn :exit-value value)
   nil)
 
 (defn eval-string
-  ``
-  Evaluates a string in the current environment. If more control over the
+  ``Evaluates a string in the current environment. If more control over the
   environment is needed, use `run-context`.``
   [str]
   (var state (string str))
@@ -2470,13 +2576,13 @@
         (error "no value")))))
 
 (def load-image-dict
-  `A table used in combination with unmarshal to unmarshal byte sequences created
-  by make-image, such that (load-image bytes) is the same as (unmarshal bytes load-image-dict).`
+  ``A table used in combination with `unmarshal` to unmarshal byte sequences created
+  by `make-image`, such that `(load-image bytes)` is the same as `(unmarshal bytes load-image-dict)`.``
   @{})
 
 (def make-image-dict
-  `A table used in combination with marshal to marshal code (images), such that
-  (make-image x) is the same as (marshal x make-image-dict).`
+  ``A table used in combination with `marshal` to marshal code (images), such that
+  `(make-image x)` is the same as `(marshal x make-image-dict)`.``
   @{})
 
 (defmacro comptime
@@ -2485,26 +2591,26 @@
   (eval x))
 
 (defmacro compif
-  "Check the condition cnd at compile time - if truthy, compile tru, else compile fals."
+  "Check the condition `cnd` at compile time -- if truthy, compile `tru`, else compile `fals`."
   [cnd tru &opt fals]
   (if (eval cnd)
     tru
     fals))
 
 (defmacro compwhen
-  "Check the condition cnd at compile time - if truthy, compile (upscope ;body), else compile nil."
+  "Check the condition `cnd` at compile time -- if truthy, compile `(upscope ;body)`, else compile nil."
   [cnd & body]
   (if (eval cnd)
     ~(upscope ,;body)))
 
 (defn make-image
-  `Create an image from an environment returned by require.
-  Returns the image source as a string.`
+  ``Create an image from an environment returned by `require`.
+  Returns the image source as a string.``
   [env]
   (marshal env make-image-dict))
 
 (defn load-image
-  "The inverse operation to make-image. Returns an environment."
+  "The inverse operation to `make-image`. Returns an environment."
   [image]
   (unmarshal image load-image-dict))
 
@@ -2514,18 +2620,18 @@
 (defn- check-project-relative [x] (if (string/has-prefix? "/" x) x))
 
 (def module/cache
-  "Table mapping loaded module identifiers to their environments."
+  "A table, mapping loaded module identifiers to their environments."
   @{})
 
 (def module/paths
   ```
-  The list of paths to look for modules, templated for module/expand-path.
+  The list of paths to look for modules, templated for `module/expand-path`.
   Each element is a two-element tuple, containing the path
   template and a keyword :source, :native, or :image indicating how
-  require should load files found at these paths.
+  `require` should load files found at these paths.
 
   A tuple can also
-  contain a third element, specifying a filter that prevents module/find
+  contain a third element, specifying a filter that prevents `module/find`
   from searching that path template if the filter doesn't match the input
   path. The filter can be a string or a predicate function, and
   is often a file extension, including the period.
@@ -2579,7 +2685,7 @@
 
 (defn module/find
   ```
-  Try to match a module or path name from the patterns in module/paths.
+  Try to match a module or path name from the patterns in `module/paths`.
   Returns a tuple (fullpath kind) where the kind is one of :source, :native,
   or :image if the module is found, otherwise a tuple with nil followed by
   an error message.
@@ -2607,15 +2713,15 @@
       [nil (string "could not find module " path ":\n    " ;str-parts)])))
 
 (def module/loading
-  `Table mapping currently loading modules to true. Used to prevent
+  `A table, mapping currently loading modules to true. Used to prevent
   circular dependencies.`
   @{})
 
 (defn dofile
-  `Evaluate a file, file path, or stream and return the resulting environment. :env, :expander,
+  ``Evaluate a file, file path, or stream and return the resulting environment. :env, :expander,
   :source, :evaluator, :read, and :parser are passed through to the underlying
-  run-context call. If exit is true, any top level errors will trigger a
-  call to (os/exit 1) after printing the error.`
+  `run-context` call. If `exit` is true, any top level errors will trigger a
+  call to `(os/exit 1)` after printing the error.``
   [path &keys
    {:exit exit
     :env env
@@ -2641,7 +2747,7 @@
       (os/exit 1))
     (put env :exit true)
     (def buf @"")
-    (with-dyns [:err buf :err-color false]
+    (with-dyns [*err* buf *err-color* false]
       (bad-parse x y))
     (set exit-error (string/slice buf 0 -2)))
   (defn bc [&opt x y z a b]
@@ -2650,7 +2756,7 @@
       (os/exit 1))
     (put env :exit true)
     (def buf @"")
-    (with-dyns [:err buf :err-color false]
+    (with-dyns [*err* buf *err-color* false]
       (bad-compile x nil z a b))
     (set exit-error (string/slice buf 0 -2))
     (set exit-fiber y))
@@ -2683,9 +2789,9 @@
   nenv)
 
 (def module/loaders
-  `A table of loading method names to loading functions.
-  This table lets require and import load many different kinds
-  of files as modules.`
+  ``A table of loading method names to loading functions.
+  This table lets `require` and `import` load many different kinds
+  of files as modules.``
   @{:native (fn native-loader [path &] (native path (make-env)))
     :source (fn source-loader [path args]
               (put module/loading path true)
@@ -2714,17 +2820,17 @@
         env))))
 
 (defn require
-  `Require a module with the given name. Will search all of the paths in
-  module/paths. Returns the new environment
-  returned from compiling and running the file.`
+  ``Require a module with the given name. Will search all of the paths in
+  `module/paths`. Returns the new environment
+  returned from compiling and running the file.``
   [path & args]
   (require-1 path args (struct ;args)))
 
 (defn merge-module
-  `Merge a module source into the target environment with a prefix, as with the import macro.
-  This lets users emulate the behavior of import with a custom module table.
-  If export is truthy, then merged functions are not marked as private. Returns
-  the modified target environment.`
+  ``Merge a module source into the `target` environment with a `prefix`, as with the `import` macro.
+  This lets users emulate the behavior of `import` with a custom module table.
+  If `export` is truthy, then merged functions are not marked as private. Returns
+  the modified target environment.``
   [target source &opt prefix export]
   (loop [[k v] :pairs source :when (symbol? k) :when (not (v :private))]
     (def newv (table/setproto @{:private (not export)} v))
@@ -2732,8 +2838,8 @@
   target)
 
 (defn import*
-  `Function form of import. Same parameters, but the path
-  and other symbol parameters should be strings instead.`
+  ``Function form of `import`. Same parameters, but the path
+  and other symbol parameters should be strings instead.``
   [path & args]
   (def env (curenv))
   (def kargs (table ;args))
@@ -2748,22 +2854,22 @@
   (merge-module env newenv prefix ep))
 
 (defmacro import
-  `Import a module. First requires the module, and then merges its
+  ``Import a module. First requires the module, and then merges its
   symbols into the current environment, prepending a given prefix as needed.
   (use the :as or :prefix option to set a prefix). If no prefix is provided,
-  use the name of the module as a prefix. One can also use :export true
-  to re-export the imported symbols. If :exit true is given as an argument,
-  any errors encountered at the top level in the module will cause (os/exit 1)
+  use the name of the module as a prefix. One can also use "`:export true`"
+  to re-export the imported symbols. If "`:exit true`" is given as an argument,
+  any errors encountered at the top level in the module will cause `(os/exit 1)`
   to be called. Dynamic bindings will NOT be imported. Use :fresh to bypass the
-  module cache.`
+  module cache.``
   [path & args]
   (def ps (partition 2 args))
   (def argm (mapcat (fn [[k v]] [k (if (= k :as) (string v) v)]) ps))
   (tuple import* (string path) ;argm))
 
 (defmacro use
-  `Similar to import, but imported bindings are not prefixed with a module
-  identifier. Can also import multiple modules in one shot.`
+  ``Similar to `import`, but imported bindings are not prefixed with a module
+  identifier. Can also import multiple modules in one shot.``
   [& modules]
   ~(do ,;(map |~(,import* ,(string $) :prefix "") modules)))
 
@@ -2786,18 +2892,24 @@
   (sort (keys ret-set)))
 
 (defn all-bindings
-  `Get all symbols available in an environment. Defaults to the current
-  fiber's environment. If local is truthy, will not show inherited bindings
-  (from prototype tables).`
+  ``Get all symbols available in an environment. Defaults to the current
+  fiber's environment. If `local` is truthy, will not show inherited bindings
+  (from prototype tables).``
   [&opt env local]
   (env-walk symbol? env local))
 
 (defn all-dynamics
-  `Get all dynamic bindings in an environment. Defaults to the current
-  fiber's environment. If local is truthy, will not show inherited bindings
-  (from prototype tables).`
+  ``Get all dynamic bindings in an environment. Defaults to the current
+  fiber's environment. If `local` is truthy, will not show inherited bindings
+  (from prototype tables).``
   [&opt env local]
   (env-walk keyword? env local))
+
+(defdyn *doc-width*
+  "Width in columns to print documentation printed with `doc-format`.")
+
+(defdyn *doc-color*
+  "Whether or not to colorize documentation printed with `doc-format`.")
 
 (defn doc-format
   `Reformat a docstring to wrap a certain width. Docstrings can either be plaintext
@@ -2806,10 +2918,10 @@
   [str &opt width indent colorize]
 
   (default indent 4)
-  (def max-width (- (or width (dyn :doc-width 80)) 8))
+  (def max-width (- (or width (dyn *doc-width* 80)) 8))
   (def has-color (if (not= nil colorize)
                    colorize
-                   (dyn :doc-color)))
+                   (dyn *doc-color*)))
 
   # Terminal codes for emission/tokenization
   (def delimiters
@@ -3062,14 +3174,14 @@
   buf)
 
 (defn- print-index
-  "Print bindings in the current environment given a filter function"
+  "Print bindings in the current environment given a filter function."
   [fltr]
   (def bindings (filter fltr (all-bindings)))
   (def dynamics (map describe (filter fltr (all-dynamics))))
   (print)
-  (print (doc-format (string "Bindings:\n\n" (string/join bindings " "))))
+  (print (doc-format (string "Bindings:\n\n" (string/join bindings " ")) nil nil false))
   (print)
-  (print (doc-format (string "Dynamics:\n\n" (string/join dynamics " "))))
+  (print (doc-format (string "Dynamics:\n\n" (string/join dynamics " ")) nil nil false))
   (print "\n    Use (doc sym) for more information on a binding.\n"))
 
 (defn- print-module-entry
@@ -3077,6 +3189,7 @@
   (def bind-type
     (string "    "
             (cond
+              (x :redef) (type (in (x :ref) 0))
               (x :ref) (string :var " (" (type (in (x :ref) 0)) ")")
               (x :macro) :macro
               (x :module) (string :module " (" (x :kind) ")")
@@ -3085,7 +3198,7 @@
   (def sm (x :source-map))
   (def d (x :doc))
   (print "\n\n"
-         (when d bind-type)
+         bind-type
          (when-let [[path line col] sm]
            (string "    " path (when (and line col) (string " on line " line ", column " col))))
          (when sm "\n")
@@ -3100,7 +3213,7 @@
          (string "    See https://janet-lang.org/docs/specials.html\n\n")))
 
 (defn doc*
-  "Get the documentation for a symbol in a given environment. Function form of doc."
+  "Get the documentation for a symbol in a given environment. Function form of `doc`."
   [&opt sym]
 
   (cond
@@ -3168,25 +3281,25 @@
   (dyn :signal))
 
 (defn .stack
-  "Print the current fiber stack"
+  "Print the current fiber stack."
   []
   (print)
-  (with-dyns [:err-color false] (debug/stacktrace (.fiber) (.signal) ""))
+  (with-dyns [*err-color* false] (debug/stacktrace (.fiber) (.signal) ""))
   (print))
 
 (defn .frame
-  "Show a stack frame"
+  "Show a stack frame."
   [&opt n]
   (def stack (debug/stack (.fiber)))
   (in stack (or n 0)))
 
 (defn .fn
-  "Get the current function"
+  "Get the current function."
   [&opt n]
   (in (.frame n) :function))
 
 (defn .slots
-  "Get an array of slots in a stack frame"
+  "Get an array of slots in a stack frame."
   [&opt n]
   (in (.frame n) :slots))
 
@@ -3211,7 +3324,7 @@
     ((.disasm n) :bytecode))
 
   (defn .ppasm
-    "Pretty prints the assembly for the current function"
+    "Pretty prints the assembly for the current function."
     [&opt n]
     (def frame (.frame n))
     (def func (frame :function))
@@ -3276,7 +3389,7 @@
   (print "Set breakpoint in " fun " at pc=" pc))
 
 (defn .clear
-  "Clear the current breakpoint"
+  "Clear the current breakpoint."
   []
   (def frame (.frame))
   (def fun (frame :function))
@@ -3325,8 +3438,7 @@
   The second parameter is a function that is called when a signal is
   caught. One can provide an optional environment table to run
   the repl in, as well as an optional parser or read function to pass
-  to `run-context.`
-  ``
+  to `run-context`.``
   [&opt chunks onsignal env parser read]
   (default env (make-env))
   (default chunks
@@ -3387,7 +3499,7 @@
 
 (compwhen (dyn 'ev/go)
 
-  (defn net/close "Alias for ev/close." [stream] (ev/close stream))
+  (defn net/close "Alias for `ev/close`." [stream] (ev/close stream))
 
   (defn ev/call
     ```
@@ -3398,7 +3510,7 @@
     (ev/go (fn _call [&] (f ;args))))
 
   (defmacro ev/spawn
-    "Run some code in a new fiber. This is shorthand for (ev/call (fn [] ;body))."
+    "Run some code in a new fiber. This is shorthand for `(ev/call (fn [] ;body))`."
     [& body]
     ~(,ev/go (fn _spawn [&] ,;body)))
 
@@ -3447,7 +3559,7 @@
 
 (compwhen (dyn 'net/listen)
   (defn net/server
-    "Start a server asynchronously with net/listen and net/accept-loop. Returns the new server stream."
+    "Start a server asynchronously with `net/listen` and `net/accept-loop`. Returns the new server stream."
     [host port &opt handler type]
     (def s (net/listen host port type))
     (if handler
@@ -3516,14 +3628,19 @@
 (defn flycheck
   ``Check a file for errors without running the file. Found errors will be printed to stderr
   in the usual format. Macros will still be executed, however, so
-  arbitrary execution is possible. Other arguments are the same as dofile. `path` can also be
+  arbitrary execution is possible. Other arguments are the same as `dofile`. `path` can also be
   a file value such as stdin. Returns nil.``
   [path &keys kwargs]
+  (def old-modcache (table/clone module/cache))
+  (table/clear module/cache)
   (try
     (dofile path :evaluator flycheck-evaluator ;(kvs kwargs))
     ([e f]
      (debug/stacktrace f e "")))
+  (table/clear module/cache)
+  (merge-into module/cache old-modcache)
   nil)
+
 
 ###
 ###
@@ -3536,16 +3653,27 @@
 
 (defn- run-main
   [env subargs arg]
-  (if-let [main (get (in env 'main) :value)]
+  (if-let [entry (in env 'main)
+           main (or (get entry :value) (in (get entry :ref) 0))]
     (let [thunk (compile [main ;subargs] env arg)]
       (if (function? thunk) (thunk) (error (thunk :error))))))
+
+(defdyn *args*
+  "Dynamic bindings that will contain command line arguments at program start.")
+
+(defdyn *executable*
+  ``Name of the interpreter executable used to execute this program. Corresponds to `argv[0]` in the call to
+    `int main(int argc, char **argv);`.``)
+
+(defdyn *profilepath*
+  "Path to profile file loaded when starting up the repl.")
 
 (defn cli-main
   `Entrance for the Janet CLI tool. Call this function with the command line
   arguments as an array or tuple of strings to invoke the CLI interface.`
   [args]
 
-  (setdyn :args args)
+  (setdyn *args* args)
 
   (var should-repl false)
   (var no-file true)
@@ -3560,8 +3688,8 @@
   (var error-level nil)
   (var expect-image false)
 
-  (if-let [jp (getenv-alias "JANET_PATH")] (setdyn :syspath jp))
-  (if-let [jprofile (getenv-alias "JANET_PROFILE")] (setdyn :profilepath jprofile))
+  (if-let [jp (getenv-alias "JANET_PATH")] (setdyn *syspath* jp))
+  (if-let [jprofile (getenv-alias "JANET_PROFILE")] (setdyn *profilepath* jprofile))
 
   (defn- get-lint-level
     [i]
@@ -3571,7 +3699,7 @@
   # Flag handlers
   (def handlers
     {"h" (fn [&]
-           (print "usage: " (dyn :executable "janet") " [options] script args...")
+           (print "usage: " (dyn *executable* "janet") " [options] script args...")
            (print
              ```
              Options are:
@@ -3603,7 +3731,7 @@
      "q" (fn [&] (set quiet true) 1)
      "i" (fn [&] (set expect-image true) 1)
      "k" (fn [&] (set compile-only true) (set exit-on-error false) 1)
-     "m" (fn [i &] (setdyn :syspath (in args (+ i 1))) 2)
+     "m" (fn [i &] (setdyn *syspath* (in args (+ i 1))) 2)
      "c" (fn c-switch [i &]
            (def path (in args (+ i 1)))
            (def e (dofile path))
@@ -3631,7 +3759,7 @@
      "d" (fn [&] (set debug-flag true) 1)
      "w" (fn [i &] (set warn-level (get-lint-level i)) 2)
      "x" (fn [i &] (set error-level (get-lint-level i)) 2)
-     "R" (fn [&] (setdyn :profilepath nil) 1)})
+     "R" (fn [&] (setdyn *profilepath* nil) 1)})
 
   (defn- dohandler [n i &]
     (def h (in handlers n))
@@ -3650,17 +3778,21 @@
         (if expect-image
           (do
             (def env (load-image (slurp arg)))
-            (put env :args subargs)
-            (put env :lint-error error-level)
-            (put env :lint-warn warn-level)
-            (if debug-flag (put env :debug true))
+            (put env *args* subargs)
+            (put env *lint-error* error-level)
+            (put env *lint-warn* warn-level)
+            (when debug-flag
+              (put env *debug* true)
+              (put env *redef* true))
             (run-main env subargs arg))
           (do
             (def env (make-env))
-            (put env :args subargs)
-            (put env :lint-error error-level)
-            (put env :lint-warn warn-level)
-            (if debug-flag (put env :debug true))
+            (put env *args* subargs)
+            (put env *lint-error* error-level)
+            (put env *lint-warn* warn-level)
+            (when debug-flag
+              (put env *debug* true)
+              (put env *redef* true))
             (if compile-only
               (flycheck arg :exit exit-on-error :env env)
               (do
@@ -3683,16 +3815,18 @@
           (file/flush stdout)
           (file/read stdin :line buf))
         (def env (make-env))
-        (when-let [profile.janet (dyn :profilepath)]
+        (when-let [profile.janet (dyn *profilepath*)]
             (def new-env (dofile profile.janet :exit true))
             (merge-module env new-env "" false))
-        (if debug-flag (put env :debug true))
+        (when debug-flag
+          (put env *debug* true)
+          (put env *redef* true))
         (def getter (if raw-stdin getstdin getline))
         (defn getchunk [buf p]
           (getter (getprompt p) buf env))
-        (setdyn :pretty-format "%.20q")
-        (setdyn :err-color false)
-        (setdyn :doc-color false)
+        (setdyn :pretty-format (if colorize "%.20Q" "%.20q"))
+        (setdyn :err-color (if colorize true))
+        (setdyn :doc-color (if colorize true))
         (setdyn :lint-error error-level)
         (setdyn :lint-warn error-level)
         (repl getchunk nil env)))))

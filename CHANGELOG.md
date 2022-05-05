@@ -1,6 +1,30 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## Unreleased - ???
+- Fix printing issue in `doc` macro.
+- Numerous updates to function docstrings
+- Add `defdyn` aliases for various dynamic bindings used in core.
+- Install `janet.h` symlink to make Janet native libraries and applications
+  easier to build without `jpm`.
+
+## 1.21.2 - 2022-04-01
+- C functions `janet_dobytes` and `janet_dostring` will now enter the event loop if it is enabled.
+- Fix hashing regression - hash of negative 0 must be the same as positive 0 since they are equal.
+- The `flycheck` function no longer pollutes the module/cache
+- Fix quasiquote bug in compiler
+- Disallow use of `cancel` and `resume` on fibers scheduled or created with `ev/go`, as well as the root
+  fiber.
+
+## 1.20.0 - 2022-1-27
+- Add `:missing-symbol` hook to `compile` that will act as a catch-all macro for undefined symbols.
+- Add `:redef` dynamic binding that will allow users to redefine top-level bindings with late binding. This
+  is intended for development use.
+- Fix a bug with reading from a stream returned by `os/open` on Windows and Linux.
+- Add `:ppc64` as a detectable OS type.
+- Add `& more` support for destructuring in the match macro.
+- Add `& more` support for destructuring in all binding forms (`def`).
+
 ## 1.19.2 - 2021-12-06
 - Fix bug with missing status lines in some stack traces.
 - Update hash function to have better statistical properties.

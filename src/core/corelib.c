@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2021 Calvin Rose
+* Copyright (c) 2022 Calvin Rose
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to
@@ -339,7 +339,10 @@ JANET_CORE_FN(janet_core_native,
 
 JANET_CORE_FN(janet_core_describe,
               "(describe x)",
-              "Returns a string that is a human-readable description of a value x.") {
+              "Returns a string that is a human-readable description of `x`. "
+              "For recursive data structures, the string returned contains a "
+              "pointer value from which the identity of `x` "
+              "can be determined.") {
     JanetBuffer *b = janet_buffer(0);
     for (int32_t i = 0; i < argc; ++i)
         janet_description_b(b, argv[i]);

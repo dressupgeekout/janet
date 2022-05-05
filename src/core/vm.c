@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2021 Calvin Rose
+* Copyright (c) 2022 Calvin Rose
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to
@@ -315,7 +315,7 @@ static Janet janet_binop_call(const char *lmethod, const char *rmethod, Janet lh
 }
 
 /* Forward declaration */
-static JanetSignal janet_check_can_resume(JanetFiber *fiber, Janet *out);
+static JanetSignal janet_check_can_resume(JanetFiber *fiber, Janet *out, int is_cancel);
 static JanetSignal janet_continue_no_check(JanetFiber *fiber, Janet in, Janet *out);
 
 /* Interpreter main loop */
@@ -1056,7 +1056,7 @@ static JanetSignal run_vm(JanetFiber *fiber, Janet in) {
         vm_maybe_auto_suspend(1);
         vm_assert_type(stack[B], JANET_FIBER);
         JanetFiber *child = janet_unwrap_fiber(stack[B]);
-        if (janet_check_can_resume(child, &retreg)) {
+        if (janet_check_can_resume(child, &retreg, 0)) {
             vm_commit();
             janet_panicv(retreg);
         }
@@ -1096,7 +1096,7 @@ static JanetSignal run_vm(JanetFiber *fiber, Janet in) {
         Janet retreg;
         vm_assert_type(stack[B], JANET_FIBER);
         JanetFiber *child = janet_unwrap_fiber(stack[B]);
-        if (janet_check_can_resume(child, &retreg)) {
+        if (janet_check_can_resume(child, &retreg, 1)) {
             vm_commit();
             janet_panicv(retreg);
         }
@@ -1330,12 +1330,26 @@ Janet janet_call(JanetFunction *fun, int32_t argc, const Janet *argv) {
     return *janet_vm.return_reg;
 }
 
-static JanetSignal janet_check_can_resume(JanetFiber *fiber, Janet *out) {
+static JanetSignal janet_check_can_resume(JanetFiber *fiber, Janet *out, int is_cancel) {
     /* Check conditions */
     JanetFiberStatus old_status = janet_fiber_status(fiber);
     if (janet_vm.stackn >= JANET_RECURSION_GUARD) {
         janet_fiber_set_status(fiber, JANET_STATUS_ERROR);
         *out = janet_cstringv("C stack recursed too deeply");
+        return JANET_SIGNAL_ERROR;
+    }
+    /* If a "task" fiber is trying to be used as a normal fiber, detect that. See bug #920.
+     * Fibers must be marked as root fibers manually, or by the ev scheduler. */
+    if (janet_vm.fiber != NULL && (fiber->gc.flags & JANET_FIBER_FLAG_ROOT)) {
+#ifdef JANET_EV
+        *out = janet_cstringv(is_cancel
+                              ? "cannot cancel root fiber, use ev/cancel"
+                              : "cannot resume root fiber, use ev/go");
+#else
+        *out = janet_cstringv(is_cancel
+                              ? "cannot cancel root fiber"
+                              : "cannot resume root fiber");
+#endif
         return JANET_SIGNAL_ERROR;
     }
     if (old_status == JANET_STATUS_ALIVE ||
@@ -1452,14 +1466,14 @@ static JanetSignal janet_continue_no_check(JanetFiber *fiber, Janet in, Janet *o
 /* Enter the main vm loop */
 JanetSignal janet_continue(JanetFiber *fiber, Janet in, Janet *out) {
     /* Check conditions */
-    JanetSignal tmp_signal = janet_check_can_resume(fiber, out);
+    JanetSignal tmp_signal = janet_check_can_resume(fiber, out, 0);
     if (tmp_signal) return tmp_signal;
     return janet_continue_no_check(fiber, in, out);
 }
 
 /* Enter the main vm loop but immediately raise a signal */
 JanetSignal janet_continue_signal(JanetFiber *fiber, Janet in, Janet *out, JanetSignal sig) {
-    JanetSignal tmp_signal = janet_check_can_resume(fiber, out);
+    JanetSignal tmp_signal = janet_check_can_resume(fiber, out, sig != JANET_SIGNAL_OK);
     if (tmp_signal) return tmp_signal;
     if (sig != JANET_SIGNAL_OK) {
         JanetFiber *child = fiber;

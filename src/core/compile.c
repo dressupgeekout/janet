@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2021 Calvin Rose
+* Copyright (c) 2022 Calvin Rose
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to
@@ -197,6 +197,39 @@ void janetc_popscope_keepslot(JanetCompiler *c, JanetSlot retslot) {
     }
 }
 
+static int lookup_missing(
+    JanetCompiler *c,
+    const uint8_t *sym,
+    JanetFunction *handler,
+    JanetBinding *out) {
+    int32_t minar = handler->def->min_arity;
+    int32_t maxar = handler->def->max_arity;
+    if (minar > 1 || maxar < 1) {
+        janetc_error(c, janet_cstring("missing symbol lookup handler must take 1 argument"));
+        return 0;
+    }
+    Janet args[1] = { janet_wrap_symbol(sym) };
+    JanetFiber *fiberp = janet_fiber(handler, 64, 1, args);
+    if (NULL == fiberp) {
+        janetc_error(c, janet_cstring("failed to call missing symbol lookup handler"));
+        return 0;
+    }
+    fiberp->env = c->env;
+    int lock = janet_gclock();
+    Janet tempOut;
+    JanetSignal status = janet_continue(fiberp, janet_wrap_nil(), &tempOut);
+    janet_gcunlock(lock);
+    if (status != JANET_SIGNAL_OK) {
+        janetc_error(c, janet_formatc("(lookup) %V", tempOut));
+        return 0;
+    }
+
+    /* Convert return value as entry. */
+    /* Alternative could use janet_resolve_ext(c->env, sym) to read result from environment. */
+    *out = janet_binding_from_entry(tempOut);
+    return 1;
+}
+
 /* Allow searching for symbols. Return information about the symbol */
 JanetSlot janetc_resolve(
     JanetCompiler *c,
@@ -230,6 +263,21 @@ JanetSlot janetc_resolve(
     /* Symbol not found - check for global */
     {
         JanetBinding binding = janet_resolve_ext(c->env, sym);
+        if (binding.type == JANET_BINDING_NONE) {
+            Janet handler = janet_table_get(c->env, janet_ckeywordv("missing-symbol"));
+            switch (janet_type(handler)) {
+                case JANET_NIL:
+                    break;
+                case JANET_FUNCTION:
+                    if (!lookup_missing(c, sym, janet_unwrap_function(handler), &binding))
+                        return janetc_cslot(janet_wrap_nil());
+                    break;
+                default:
+                    janetc_error(c, janet_formatc("invalid lookup handler %V", handler));
+                    return janetc_cslot(janet_wrap_nil());
+            }
+        }
+
         switch (binding.type) {
             default:
             case JANET_BINDING_NONE:
@@ -238,6 +286,12 @@ JanetSlot janetc_resolve(
             case JANET_BINDING_DEF:
             case JANET_BINDING_MACRO: /* Macro should function like defs when not in calling pos */
                 ret = janetc_cslot(binding.value);
+                break;
+            case JANET_BINDING_DYNAMIC_DEF:
+            case JANET_BINDING_DYNAMIC_MACRO:
+                ret = janetc_cslot(binding.value);
+                ret.flags |= JANET_SLOT_REF | JANET_SLOT_NAMED | JANET_SLOTTYPE_ANY;
+                ret.flags &= ~JANET_SLOT_CONSTANT;
                 break;
             case JANET_BINDING_VAR: {
                 ret = janetc_cslot(binding.value);
@@ -651,7 +705,7 @@ static int macroexpand1(
     }
     Janet macroval;
     JanetBindingType btype = janet_resolve(c->env, name, &macroval);
-    if (btype != JANET_BINDING_MACRO ||
+    if (!(btype == JANET_BINDING_MACRO || btype == JANET_BINDING_DYNAMIC_MACRO) ||
             !janet_checktype(macroval, JANET_FUNCTION))
         return 0;
 

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2021 Calvin Rose
+* Copyright (c) 2022 Calvin Rose
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to
@@ -34,6 +34,10 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #endif
+#endif
+
+#ifdef JANET_APPLE
+#include <AvailabilityMacros.h>
 #endif
 
 #include <inttypes.h>
@@ -597,10 +601,8 @@ void janet_core_cfuns_ext(JanetTable *env, const char *regprefix, const JanetReg
 }
 #endif
 
-JanetBinding janet_resolve_ext(JanetTable *env, const uint8_t *sym) {
-    Janet ref;
+JanetBinding janet_binding_from_entry(Janet entry) {
     JanetTable *entry_table;
-    Janet entry = janet_table_get(env, janet_wrap_symbol(sym));
     JanetBinding binding = {
         JANET_BINDING_NONE,
         janet_wrap_nil(),
@@ -627,29 +629,41 @@ JanetBinding janet_resolve_ext(JanetTable *env, const uint8_t *sym) {
         binding.deprecation = JANET_BINDING_DEP_NORMAL;
     }
 
-    if (!janet_checktype(
-                janet_table_get(entry_table, janet_ckeywordv("macro")),
-                JANET_NIL)) {
-        binding.value = janet_table_get(entry_table, janet_ckeywordv("value"));
-        binding.type = JANET_BINDING_MACRO;
+    int macro = janet_truthy(janet_table_get(entry_table, janet_ckeywordv("macro")));
+    Janet value = janet_table_get(entry_table, janet_ckeywordv("value"));
+    Janet ref = janet_table_get(entry_table, janet_ckeywordv("ref"));
+    int ref_is_valid = janet_checktype(ref, JANET_ARRAY);
+    int redef = ref_is_valid && janet_truthy(janet_table_get(entry_table, janet_ckeywordv("redef")));
+
+    if (macro) {
+        binding.value = redef ? ref : value;
+        binding.type = redef ? JANET_BINDING_DYNAMIC_MACRO : JANET_BINDING_MACRO;
         return binding;
     }
 
-    ref = janet_table_get(entry_table, janet_ckeywordv("ref"));
-    if (janet_checktype(ref, JANET_ARRAY)) {
+    if (ref_is_valid) {
         binding.value = ref;
-        binding.type = JANET_BINDING_VAR;
-        return binding;
+        binding.type = redef ? JANET_BINDING_DYNAMIC_DEF : JANET_BINDING_VAR;
+    } else {
+        binding.value = value;
+        binding.type = JANET_BINDING_DEF;
     }
 
-    binding.value = janet_table_get(entry_table, janet_ckeywordv("value"));
-    binding.type = JANET_BINDING_DEF;
     return binding;
+}
+
+JanetBinding janet_resolve_ext(JanetTable *env, const uint8_t *sym) {
+    Janet entry = janet_table_get(env, janet_wrap_symbol(sym));
+    return janet_binding_from_entry(entry);
 }
 
 JanetBindingType janet_resolve(JanetTable *env, const uint8_t *sym, Janet *out) {
     JanetBinding binding = janet_resolve_ext(env, sym);
-    *out = binding.value;
+    if (binding.type == JANET_BINDING_DYNAMIC_DEF || binding.type == JANET_BINDING_DYNAMIC_MACRO) {
+        *out = janet_array_peek(janet_unwrap_array(binding.value));
+    } else {
+        *out = binding.value;
+    }
     return binding.type;
 }
 
@@ -779,11 +793,6 @@ int32_t janet_sorted_keys(const JanetKV *dict, int32_t cap, int32_t *index_buffe
 
 /* Clock shims for various platforms */
 #ifdef JANET_GETTIME
-/* For macos */
-#ifdef __MACH__
-#include <mach/clock.h>
-#include <mach/mach.h>
-#endif
 #ifdef JANET_WINDOWS
 int janet_gettime(struct timespec *spec) {
     FILETIME ftime;
@@ -796,7 +805,10 @@ int janet_gettime(struct timespec *spec) {
     spec->tv_nsec = wintime % 10000000LL * 100;
     return 0;
 }
-#elif defined(__MACH__)
+/* clock_gettime() wasn't available on Mac until 10.12. */
+#elif defined(JANET_APPLE) && !defined(MAC_OS_X_VERSION_10_12)
+#include <mach/clock.h>
+#include <mach/mach.h>
 int janet_gettime(struct timespec *spec) {
     clock_serv_t cclock;
     mach_timespec_t mts;

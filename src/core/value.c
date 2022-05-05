@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2021 Calvin Rose
+* Copyright (c) 2022 Calvin Rose
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to
@@ -322,6 +322,7 @@ int32_t janet_hash(Janet x) {
                 uint64_t u;
             } as;
             as.d = janet_unwrap_number(x);
+            as.d += 0.0; /* normalize negative 0 */
             uint32_t lo = (uint32_t)(as.u & 0xFFFFFFFF);
             uint32_t hi = (uint32_t)(as.u >> 32);
             uint32_t hilo = (hi ^ lo) * 2654435769u;

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2021 Calvin Rose & contributors
+* Copyright (c) 2022 Calvin Rose & contributors
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to
@@ -205,6 +205,92 @@ JANET_CORE_FN(cfun_it_u64_new,
               "Create a boxed unsigned 64 bit integer from a string value.") {
     janet_fixarity(argc, 1);
     return janet_wrap_u64(janet_unwrap_u64(argv[0]));
+}
+
+JANET_CORE_FN(cfun_to_number,
+              "(int/to-number value)",
+              "Convert an int/u64 or int/s64 to a number. Fails if the number is out of range for an int32.") {
+    janet_fixarity(argc, 1);
+    if (janet_type(argv[0]) == JANET_ABSTRACT) {
+        void *abst = janet_unwrap_abstract(argv[0]);
+
+        if (janet_abstract_type(abst) == &janet_s64_type) {
+            int64_t value = *((int64_t *)abst);
+            if (value > JANET_INTMAX_INT64) {
+                janet_panicf("cannot convert %q to a number, must be in the range [%q, %q]", argv[0], janet_wrap_number(JANET_INTMIN_DOUBLE), janet_wrap_number(JANET_INTMAX_DOUBLE));
+            }
+            if (value < -JANET_INTMAX_INT64) {
+                janet_panicf("cannot convert %q to a number, must be in the range [%q, %q]", argv[0], janet_wrap_number(JANET_INTMIN_DOUBLE), janet_wrap_number(JANET_INTMAX_DOUBLE));
+            }
+            return janet_wrap_number((double)value);
+        }
+
+        if (janet_abstract_type(abst) == &janet_u64_type) {
+            uint64_t value = *((uint64_t *)abst);
+            if (value > JANET_INTMAX_INT64) {
+                janet_panicf("cannot convert %q to a number, must be in the range [%q, %q]", argv[0], janet_wrap_number(JANET_INTMIN_DOUBLE), janet_wrap_number(JANET_INTMAX_DOUBLE));
+            }
+
+            return janet_wrap_number((double)value);
+        }
+    }
+
+    janet_panicf("expected int/u64 or int/s64, got %q", argv[0]);
+}
+
+JANET_CORE_FN(cfun_to_bytes,
+              "(int/to-bytes value &opt endianness buffer)",
+              "Write the bytes of an `int/s64` or `int/u64` into a buffer.\n"
+              "The `buffer` parameter specifies an existing buffer to write to, if unset a new buffer will be created.\n"
+              "Returns the modified buffer.\n"
+              "The `endianness` paramater indicates the byte order:\n"
+              "- `nil` (unset): system byte order\n"
+              "- `:le`: little-endian, least significant byte first\n"
+              "- `:be`: big-endian, most significant byte first\n") {
+    janet_arity(argc, 1, 3);
+    if (janet_is_int(argv[0]) == JANET_INT_NONE) {
+        janet_panicf("int/to-bytes: expected an int/s64 or int/u64, got %q", argv[0]);
+    }
+
+    int reverse = 0;
+    if (argc > 1 && !janet_checktype(argv[1], JANET_NIL)) {
+        JanetKeyword endianness_kw = janet_getkeyword(argv, 1);
+        if (!janet_cstrcmp(endianness_kw, "le")) {
+#if JANET_BIG_ENDIAN
+            reverse = 1;
+#endif
+        } else if (!janet_cstrcmp(endianness_kw, "be")) {
+#if JANET_LITTLE_ENDIAN
+            reverse = 1;
+#endif
+        } else {
+            janet_panicf("int/to-bytes: expected endianness :le, :be or nil, got %v", argv[1]);
+        }
+    }
+
+    JanetBuffer *buffer = NULL;
+    if (argc > 2 && !janet_checktype(argv[2], JANET_NIL)) {
+        if (!janet_checktype(argv[2], JANET_BUFFER)) {
+            janet_panicf("int/to-bytes: expected buffer or nil, got %q", argv[2]);
+        }
+
+        buffer = janet_unwrap_buffer(argv[2]);
+        janet_buffer_extra(buffer, 8);
+    } else {
+        buffer = janet_buffer(8);
+    }
+
+    uint8_t *bytes = janet_unwrap_abstract(argv[0]);
+    if (reverse) {
+        for (int i = 0; i < 8; ++i) {
+            buffer->data[buffer->count + 7 - i] = bytes[i];
+        }
+    } else {
+        memcpy(buffer->data + buffer->count, bytes, 8);
+    }
+    buffer->count += 8;
+
+    return janet_wrap_buffer(buffer);
 }
 
 /*
@@ -514,6 +600,8 @@ void janet_lib_inttypes(JanetTable *env) {
     JanetRegExt it_cfuns[] = {
         JANET_CORE_REG("int/s64", cfun_it_s64_new),
         JANET_CORE_REG("int/u64", cfun_it_u64_new),
+        JANET_CORE_REG("int/to-number", cfun_to_number),
+        JANET_CORE_REG("int/to-bytes", cfun_to_bytes),
         JANET_REG_END
     };
     janet_core_cfuns_ext(env, NULL, it_cfuns);

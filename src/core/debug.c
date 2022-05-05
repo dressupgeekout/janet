@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2021 Calvin Rose
+* Copyright (c) 2022 Calvin Rose
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to
@@ -340,9 +340,9 @@ JANET_CORE_FN(cfun_debug_stack,
               "stack frame is the first table in the array, and the bottom-most stack frame "
               "is the last value. Each stack frame contains some of the following attributes:\n\n"
               "* :c - true if the stack frame is a c function invocation\n\n"
-              "* :column - the current source column of the stack frame\n\n"
+              "* :source-column - the current source column of the stack frame\n\n"
               "* :function - the function that the stack frame represents\n\n"
-              "* :line - the current source line of the stack frame\n\n"
+              "* :source-line - the current source line of the stack frame\n\n"
               "* :name - the human-friendly name of the function\n\n"
               "* :pc - integer indicating the location of the program counter\n\n"
               "* :source - string with the file path or other identifier for the source code\n\n"

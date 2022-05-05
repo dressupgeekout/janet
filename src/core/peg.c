@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2021 Calvin Rose
+* Copyright (c) 2022 Calvin Rose
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to
@@ -293,6 +293,7 @@ tail:
                     if (rule[0] == RULE_TO) cap_load(s, cs2);
                     break;
                 }
+                cap_load(s, cs2);
                 text++;
             }
             up1(s);

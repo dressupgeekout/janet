@@ -1,3 +1,10 @@
+# dressupgeekout's Janet
+
+This is a branch of the **Janet** language with optimizations for the
+**Atari ST** (and maybe other similar 68000-based machines).
+
+----------
+
 [![Join the chat](https://badges.gitter.im/janet-language/community.svg)](https://gitter.im/janet-language/community)
 &nbsp;
 [![builds.sr.ht status](https://builds.sr.ht/~bakpakin/janet/commits/master/freebsd.yml.svg)](https://builds.sr.ht/~bakpakin/janet/commits/master/freebsd.yml?)

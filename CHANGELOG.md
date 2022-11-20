@@ -1,7 +1,69 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## Unreleased - ???
+## ??? - Unreleased
+- Channels can now be marshalled. Pending state is not saved, only items in the channel.
+- Use the new `.length` function pointer on abstract types for lengths. Adding
+  a `length` method will still work as well.
+- Support byte views on abstract types with the `bytes` function pointer.
+- Add the `u` format specifier to printf family functions.
+- Allow printing 64 integer types in `printf` and `string/format` family functions.
+- Allow importing modules from custom directories more easily with the `@` prefix
+  to module paths. For example, if there is a dynamic binding :custom-modules that
+  is a file system path to a directory of modules, import from that directory with
+  `(import @custom-modules/mymod)`.
+- Fix error message bug in FFI library.
+
+## 1.25.1 - 2022-10-29
+- Add `memcmp` function to core library.
+- Fix bug in `os/open` with `:rw` permissions not correct on Linux.
+- Support config.mk for more easily configuring the Makefile.
+
+## 1.25.0 - 2022-10-10
+- Windows FFI fixes.
+- Fix PEG `if-not` combinator with captures in the condition
+- Fix bug with `os/date` with nil first argument
+- Fix bug with `net/accept` on Linux that could leak file descriptors to subprocesses
+- Reduce number of hash collisions from pointer hashing
+- Add optional parameter to `marshal` to skip cycle checking code
+
+## 1.24.1 - 2022-08-24
+- Fix FFI bug on Linux/Posix
+- Improve parse error messages for bad delimiters.
+- Add optional `name` parameter to the `short-fn` macro.
+
+## 1.24.0 - 2022-08-14
+- Add FFI support to 64-bit windows compiled with MSVC
+- Don't process shared object names passed to dlopen.
+- Add better support for windows console in the default shell.c for auto-completion and
+  other shell-like input features.
+- Improve default error message from `assert`.
+- Add the `tabseq` macro for simpler table comprehensions.
+- Allow setting `(dyn :task-id)` in fibers to improve context in supervisor messages. Prior to
+  this change, supervisor messages over threaded channels would be from ambiguous threads/fibers.
+
+## 1.23.0 - 2022-06-20
+- Add experimental `ffi/` module for interfacing with dynamic libraries and raw function pointers. Only available
+  on 64 bit linux, mac, and bsd systems.
+- Allow using `&named` in function prototypes for named arguments. This is a more ergonomic
+  variant of `&keys` that isn't as redundant, more self documenting, and allows extension to
+  things like default arguments.
+- Add `delay` macro for lazy evaluate-and-save thunks.
+- Remove pthread.h from janet.h for easier includes.
+- Add `debugger` - an easy to use debugger function that just takes a fiber.
+- `dofile` will now start a debugger on errors if the environment it is passed has `:debug` set.
+- Add `debugger-on-status` function, which can be passed to `run-context` to start a debugger on
+  abnormal fiber signals.
+- Allow running scripts with the `-d` flag to use the built-in debugger on errors and breakpoints.
+- Add mutexes (locks) and reader-writer locks to ev module for thread coordination.
+- Add `parse-all` as a generalization of the `parse` function.
+- Add `os/cpu-count` to get the number of available processors on a machine
+
+## 1.22.0 - 2022-05-09
+- Prohibit negative size argument to `table/new`.
+- Add `module/value`.
+- Remove `file/popen`. Use `os/spawn` with the `:pipe` options instead.
+- Fix bug in peg `thru` and `to` combinators.
 - Fix printing issue in `doc` macro.
 - Numerous updates to function docstrings
 - Add `defdyn` aliases for various dynamic bindings used in core.

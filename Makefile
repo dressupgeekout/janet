@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Calvin Rose
+# Copyright (c) 2022 Calvin Rose
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to
@@ -21,9 +21,10 @@
 ################################
 ##### Set global variables #####
 ################################
-
+sinclude config.mk
 PREFIX?=/usr/local
 
+JANETCONF_HEADER?=src/conf/janetconf.h
 INCLUDEDIR?=$(PREFIX)/include
 BINDIR?=$(PREFIX)/bin
 LIBDIR?=$(PREFIX)/lib
@@ -83,7 +84,7 @@ all: $(JANET_TARGET) $(JANET_STATIC_LIBRARY)
 ##### Name Files #####
 ######################
 
-JANET_HEADERS=src/include/janet.h src/conf/janetconf.h
+JANET_HEADERS=src/include/janet.h $(JANETCONF_HEADER)
 
 JANET_LOCAL_HEADERS=src/core/features.h \
 					src/core/util.h \
@@ -108,6 +109,7 @@ JANET_CORE_SOURCES=src/core/abstract.c \
 				   src/core/debug.c \
 				   src/core/emit.c \
 				   src/core/ev.c \
+				   src/core/ffi.c \
 				   src/core/fiber.c \
 				   src/core/gc.c \
 				   src/core/inttypes.c \
@@ -167,24 +169,24 @@ build/c/janet.c: build/janet_boot src/boot/boot.janet
 ########################
 
 ifeq ($(UNAME), Darwin)
-SONAME=libjanet.1.21.dylib
+SONAME=libjanet.1.26.dylib
 else
-SONAME=libjanet.so.1.21
+SONAME=libjanet.so.1.26
 endif
 
 build/c/shell.c: src/mainclient/shell.c
 	cp $< $@
 
-build/janet.h: $(JANET_TARGET) src/include/janet.h src/conf/janetconf.h
-	./$(JANET_TARGET) tools/patch-header.janet src/include/janet.h src/conf/janetconf.h $@
+build/janet.h: $(JANET_TARGET) src/include/janet.h $(JANETCONF_HEADER)
+	./$(JANET_TARGET) tools/patch-header.janet src/include/janet.h $(JANETCONF_HEADER) $@
 
-build/janetconf.h: src/conf/janetconf.h
+build/janetconf.h: $(JANETCONF_HEADER)
 	cp $< $@
 
-build/janet.o: build/c/janet.c src/conf/janetconf.h src/include/janet.h
+build/janet.o: build/c/janet.c $(JANETCONF_HEADER) src/include/janet.h
 	$(HOSTCC) $(BUILD_CFLAGS) -c $< -o $@
 
-build/shell.o: build/c/shell.c src/conf/janetconf.h src/include/janet.h
+build/shell.o: build/c/shell.c $(JANETCONF_HEADER) src/include/janet.h
 	$(HOSTCC) $(BUILD_CFLAGS) -c $< -o $@
 
 $(JANET_TARGET): build/janet.o build/shell.o
@@ -282,7 +284,7 @@ install: $(JANET_TARGET) $(JANET_LIBRARY) $(JANET_STATIC_LIBRARY) build/janet.pc
 	cp $(JANET_TARGET) '$(DESTDIR)$(BINDIR)/janet'
 	mkdir -p '$(DESTDIR)$(INCLUDEDIR)/janet'
 	cp -r build/janet.h '$(DESTDIR)$(INCLUDEDIR)/janet'
-	ln -sf '$(DESTDIR)$(INCLUDEDIR)/janet/janet.h' '$(DESTDIR)$(INCLUDEDIR)/janet.h'
+	ln -sf -T ./janet/janet.h '$(DESTDIR)$(INCLUDEDIR)/janet.h' || true #fixme bsd
 	mkdir -p '$(DESTDIR)$(JANET_PATH)'
 	mkdir -p '$(DESTDIR)$(LIBDIR)'
 	if test $(UNAME) = Darwin ; then \
@@ -299,7 +301,7 @@ install: $(JANET_TARGET) $(JANET_LIBRARY) $(JANET_STATIC_LIBRARY) build/janet.pc
 	cp janet.1 '$(DESTDIR)$(JANET_MANPATH)'
 	mkdir -p '$(DESTDIR)$(JANET_PKG_CONFIG_PATH)'
 	cp build/janet.pc '$(DESTDIR)$(JANET_PKG_CONFIG_PATH)/janet.pc'
-	[ -z '$(DESTDIR)' ] && $(LDCONFIG) || true
+	[ -z '$(DESTDIR)' ] && $(LDCONFIG) || echo "You can ignore this error for non-Linux systems or local installs"
 
 install-jpm-git: $(JANET_TARGET)
 	mkdir -p build

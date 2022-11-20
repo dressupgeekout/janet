@@ -1,5 +1,5 @@
 # The core janet library
-# Copyright 2021 © Calvin Rose
+# Copyright 2022 © Calvin Rose
 
 ###
 ###
@@ -45,6 +45,7 @@
 (defn defmacro :macro
   "Define a macro."
   [name & more]
+  (setdyn name @{}) # override old macro definitions in the case of a recursive macro
   (apply defn name :macro more))
 
 (defmacro as-macro
@@ -74,6 +75,11 @@
   "Define a private var that will not be exported."
   [name & more]
   ~(var ,name :private ,;more))
+
+(defmacro toggle
+  "Set a value to its boolean inverse. Same as `(set value (not value))`."
+  [value]
+  ~(set ,value (,not ,value)))
 
 (defn defglobal
   "Dynamically create a global def."
@@ -157,7 +163,7 @@
      (def ,v ,x)
      (if ,v
        ,v
-       (,error ,(if err err "assert failure")))))
+       (,error ,(if err err (string/format "assert failure in %j" x))))))
 
 (defn errorf
   "A combination of `error` and `string/format`. Equivalent to `(error (string/format fmt ;args))`."
@@ -548,23 +554,23 @@
 
   * `:iterate` -- repeatedly evaluate and bind to the expression while it is
     truthy.
-  
+
   * `:range` -- loop over a range. The object should be a two-element tuple with
     a start and end value, and an optional positive step. The range is half
     open, [start, end).
-                  
+
   * `:range-to` -- same as :range, but the range is inclusive [start, end].
-                  
+
   * `:down` -- loop over a range, stepping downwards. The object should be a
     two-element tuple with a start and (exclusive) end value, and an optional
     (positive!) step size.
-                  
+
   * `:down-to` -- same as :down, but the range is inclusive [start, end].
-                  
+
   * `:keys` -- iterate over the keys in a data structure.
-                  
+
   * `:pairs` -- iterate over the key-value pairs as tuples in a data structure.
-                  
+
   * `:in` -- iterate over the values in a data structure or fiber.
 
   `loop` also accepts conditionals to refine the looping further. Conditionals are of
@@ -577,21 +583,21 @@
 
   * `:while expression` -- breaks from the current loop if `expression` is
     falsey.
-                  
+
   * `:until expression` -- breaks from the current loop if `expression` is
     truthy.
-                  
+
   * `:let bindings` -- defines bindings inside the current loop as passed to the
     `let` macro.
-                  
+
   * `:before form` -- evaluates a form for a side effect before the next inner
     loop.
-                  
+
   * `:after form` -- same as `:before`, but the side effect happens after the
     next inner loop.
-                  
+
   * `:repeat n` -- repeats the next inner loop `n` times.
-                  
+
   * `:when condition` -- only evaluates the current loop body when `condition`
     is true.
 
@@ -605,13 +611,20 @@
   See `loop` for details.``
   [head & body]
   (def $accum (gensym))
-  ~(do (def ,$accum @[]) (loop ,head (array/push ,$accum (do ,;body))) ,$accum))
+  ~(do (def ,$accum @[]) (loop ,head (,array/push ,$accum (do ,;body))) ,$accum))
+
+(defmacro tabseq
+  ``Similar to `loop`, but accumulates key value pairs into a table.
+  See `loop` for details.``
+  [head key-body & value-body]
+  (def $accum (gensym))
+  ~(do (def ,$accum @{}) (loop ,head (,put ,$accum ,key-body (do ,;value-body))) ,$accum))
 
 (defmacro generate
   ``Create a generator expression using the `loop` syntax. Returns a fiber
   that yields all values inside the loop in order. See `loop` for details.``
   [head & body]
-  ~(fiber/new (fn [] (loop ,head (yield (do ,;body)))) :yi))
+  ~(,fiber/new (fn [] (loop ,head (yield (do ,;body)))) :yi))
 
 (defmacro coro
   "A wrapper for making fibers that may yield multiple values (coroutine). Same as `(fiber/new (fn [] ;body) :yi)`."
@@ -948,12 +961,12 @@
       (def call-buffer @[])
       (while true
         (forv i 0 ninds
-              (let [old-key (in iterkeys i)
-                    ii (in inds i)
-                    new-key (next ii old-key)]
-                (if (= nil new-key)
-                  (do (set done true) (break))
-                  (do (set (iterkeys i) new-key) (array/push call-buffer (in ii new-key))))))
+          (let [old-key (in iterkeys i)
+                ii (in inds i)
+                new-key (next ii old-key)]
+            (if (= nil new-key)
+              (do (set done true) (break))
+              (do (set (iterkeys i) new-key) (array/push call-buffer (in ii new-key))))))
         (if done (break))
         (array/push res (f ;call-buffer))
         (array/clear call-buffer))))
@@ -1591,8 +1604,8 @@
   (each x ind
     (def y (f x))
     (cond
-      is-new          (do (set is-new false) (set category y) (set span @[x]) (array/push ret span))
-      (= y category)  (array/push span x)
+      is-new (do (set is-new false) (set category y) (set span @[x]) (array/push ret span))
+      (= y category) (array/push span x)
       (do (set category y) (set span @[x]) (array/push ret span))))
   ret)
 
@@ -1736,7 +1749,7 @@
   * tuple -- a tuple pattern will match if its first element matches, and the
     following elements are treated as predicates and are true.
 
-  * `\_` symbol -- the last special case is the `\_` symbol, which is a wildcard
+  * `_` symbol -- the last special case is the `_` symbol, which is a wildcard
     that will match any value without creating a binding.
 
   While a symbol pattern will ordinarily match any value, the pattern `(@ <sym>)`,
@@ -1842,7 +1855,7 @@
     (when isarr
       (array/push anda (get-length-sym s))
       (def pattern-len
-        (if-let [ rest-idx (find-index (fn [x] (= x '&)) pattern) ]
+        (if-let [rest-idx (find-index (fn [x] (= x '&)) pattern)]
           rest-idx
           (length pattern)))
       (array/push anda [<= pattern-len (get-length-sym s)]))
@@ -1853,7 +1866,7 @@
       (eachp [i sub-pattern] pattern
         (array/push anda [not= nil (get-sym s i)])
         (visit-pattern-2 anda gun preds s i sub-pattern))
-      
+
       isarr
       (eachp [i sub-pattern] pattern
         # stop recursing to sub-patterns if the rest sigil is found
@@ -2164,7 +2177,7 @@
       |(+ $ $) # use pipe reader macro for terse function literals.
       |(+ $&)  # variadic functions
   ```
-  [arg]
+  [arg &opt name]
   (var max-param-seen -1)
   (var vararg false)
   (defn saw-special-arg
@@ -2190,8 +2203,9 @@
           x))
       x))
   (def expanded (macex arg on-binding))
+  (def name-splice (if name [name] []))
   (def fn-args (seq [i :range [0 (+ 1 max-param-seen)]] (symbol '$ i)))
-  ~(fn [,;fn-args ,;(if vararg ['& '$&] [])] ,expanded))
+  ~(fn ,;name-splice [,;fn-args ,;(if vararg ['& '$&] [])] ,expanded))
 
 ###
 ###
@@ -2282,9 +2296,9 @@
     (def source-code (file/read f :all))
     (var index 0)
     (repeat (dec line)
-       (if-not index (break))
-       (set index (string/find "\n" source-code index))
-       (if index (++ index)))
+      (if-not index (break))
+      (set index (string/find "\n" source-code index))
+      (if index (++ index)))
     (when index
       (def line-end (string/find "\n" source-code index))
       (eprint "  " (string/slice source-code index line-end))
@@ -2353,31 +2367,31 @@
   `opts` is a table or struct of options. The options are as follows:
 
     * `:chunks` -- callback to read into a buffer - default is getline
-      
+
     * `:on-parse-error` -- callback when parsing fails - default is bad-parse
-      
+
     * `:env` -- the environment to compile against - default is the current env
-      
+
     * `:source` -- source path for better errors (use keywords for non-paths) - default
       is :<anonymous>
-      
+
     * `:on-compile-error` -- callback when compilation fails - default is bad-compile
-      
+
     * `:on-compile-warning` -- callback for any linting error - default is warn-compile
-      
+
     * `:evaluator` -- callback that executes thunks. Signature is (evaluator thunk source
       env where)
-      
+
     * `:on-status` -- callback when a value is evaluated - default is debug/stacktrace.
-      
+
     * `:fiber-flags` -- what flags to wrap the compilation fiber with. Default is :ia.
-      
+
     * `:expander` -- an optional function that is called on each top level form before
       being compiled.
-      
+
     * `:parser` -- provide a custom parser that implements the same interface as Janet's
       built-in parser.
-      
+
     * `:read` -- optional function to get the next form, called like `(read env source)`.
       Overrides all parsing.
   ```
@@ -2520,7 +2534,7 @@
   (in env :exit-value env))
 
 (defn quit
-  ``Tries to exit from the current repl or context. Does not always exit the application.
+  ``Tries to exit from the current repl or run-context. Does not always exit the application.
   Works by setting the :exit dynamic binding to true. Passing a non-nil `value` here will cause the outer
   run-context to return that value.``
   [&opt value]
@@ -2528,36 +2542,11 @@
   (setdyn :exit-value value)
   nil)
 
-(defn eval-string
-  ``Evaluates a string in the current environment. If more control over the
-  environment is needed, use `run-context`.``
-  [str]
-  (var state (string str))
-  (defn chunks [buf _]
-    (def ret state)
-    (set state nil)
-    (when ret
-      (buffer/push-string buf str)
-      (buffer/push-string buf "\n")))
-  (var returnval nil)
-  (run-context {:chunks chunks
-                :on-compile-error (fn compile-error [msg errf &]
-                                    (error (string "compile error: " msg)))
-                :on-parse-error (fn parse-error [p x]
-                                  (error (string "parse error: " (:error p))))
-                :fiber-flags :i
-                :on-status (fn on-status [f val]
-                             (if-not (= (fiber/status f) :dead)
-                               (error val))
-                             (set returnval val))
-                :source :eval-string})
-  returnval)
-
 (defn eval
   ``Evaluates a form in the current environment. If more control over the
   environment is needed, use `run-context`.``
   [form]
-  (def res (compile form (fiber/getenv (fiber/current)) :eval))
+  (def res (compile form nil :eval))
   (if (= (type res) :function)
     (res)
     (error (get res :error))))
@@ -2568,12 +2557,38 @@
   [str]
   (let [p (parser/new)]
     (parser/consume p str)
+    (if (= :error (parser/status p))
+      (error (parser/error p)))
     (parser/eof p)
     (if (parser/has-more p)
       (parser/produce p)
       (if (= :error (parser/status p))
         (error (parser/error p))
         (error "no value")))))
+
+(defn parse-all
+  `Parse a string and return all parsed values. For complex parsing, such as for a repl with error handling,
+  use the parser api.`
+  [str]
+  (let [p (parser/new)
+        ret @[]]
+    (parser/consume p str)
+    (if (= :error (parser/status p))
+      (error (parser/error p)))
+    (parser/eof p)
+    (while (parser/has-more p)
+      (array/push ret (parser/produce p)))
+    (if (= :error (parser/status p))
+      (error (parser/error p))
+      ret)))
+
+(defn eval-string
+  ``Evaluates a string in the current environment. If more control over the
+  environment is needed, use `run-context`.``
+  [str]
+  (var ret nil)
+  (each x (parse-all str) (set ret (eval x)))
+  ret)
 
 (def load-image-dict
   ``A table used in combination with `unmarshal` to unmarshal byte sequences created
@@ -2614,9 +2629,10 @@
   [image]
   (unmarshal image load-image-dict))
 
+(defn- check-dyn-relative [x] (if (string/has-prefix? "@" x) x))
 (defn- check-relative [x] (if (string/has-prefix? "." x) x))
 (defn- check-not-relative [x] (if-not (string/has-prefix? "." x) x))
-(defn- check-is-dep [x] (unless (or (string/has-prefix? "/" x) (string/has-prefix? "." x)) x))
+(defn- check-is-dep [x] (unless (or (string/has-prefix? "/" x) (string/has-prefix? "@" x) (string/has-prefix? "." x)) x))
 (defn- check-project-relative [x] (if (string/has-prefix? "/" x) x))
 
 (def module/cache
@@ -2650,6 +2666,8 @@
   (defn- find-prefix
     [pre]
     (or (find-index |(and (string? ($ 0)) (string/has-prefix? pre ($ 0))) module/paths) 0))
+  (def dyn-index (find-prefix ":@all:"))
+  (array/insert module/paths dyn-index [(string ":@all:" ext) loader check-dyn-relative])
   (def all-index (find-prefix ".:all:"))
   (array/insert module/paths all-index [(string ".:all:" ext) loader check-project-relative])
   (def sys-index (find-prefix ":sys:"))
@@ -2717,19 +2735,79 @@
   circular dependencies.`
   @{})
 
+(defn module/value
+  ``Given a module table, get the value bound to a symbol `sym`. If `private` is
+  truthy, will also resolve private module symbols. If no binding is found, will return
+  nil.``
+  [module sym &opt private]
+  (def entry (get module sym))
+  (if entry
+    (let [v (in entry :value)
+          r (in entry :ref)
+          p (in entry :private)]
+      (if p (if private nil (break)))
+      (if (and r (array? r))
+        (get r 0)
+        v))))
+
+(def debugger-env
+  "An environment that contains dot prefixed functions for debugging."
+  @{})
+
+(var- debugger-on-status-var nil)
+
+(defn debugger
+  "Run a repl-based debugger on a fiber. Optionally pass in a level
+  to differentiate nested debuggers."
+  [fiber &opt level]
+  (default level 1)
+  (def nextenv (make-env (fiber/getenv fiber)))
+  (put nextenv :fiber fiber)
+  (put nextenv :debug-level level)
+  (put nextenv :signal (fiber/last-value fiber))
+  (merge-into nextenv debugger-env)
+  (defn debugger-chunks [buf p]
+    (def status (:state p :delimiters))
+    (def c ((:where p) 0))
+    (def prpt (string "debug[" level "]:" c ":" status "> "))
+    (getline prpt buf nextenv))
+  (eprint "entering debug[" level "] - (quit) to exit")
+  (flush)
+  (run-context
+    {:chunks debugger-chunks
+     :on-status (debugger-on-status-var nextenv (+ 1 level) true)
+     :env nextenv})
+  (eprint "exiting debug[" level "]")
+  (flush)
+  (nextenv :resume-value))
+
+(defn debugger-on-status
+  "Create a function that can be passed to `run-context`'s `:on-status`
+  argument that will drop into a debugger on errors. The debugger will
+  only start on abnormal signals if the env table has the `:debug` dyn
+  set to a truthy value."
+  [env &opt level is-repl]
+  (default level 1)
+  (fn [f x]
+    (def fs (fiber/status f))
+    (if (= :dead fs)
+      (when is-repl
+        (put env '_ @{:value x})
+        (printf (get env :pretty-format "%q") x)
+        (flush))
+      (do
+        (debug/stacktrace f x "")
+        (eflush)
+        (if (get env :debug) (debugger f level))))))
+
+(set debugger-on-status-var debugger-on-status)
+
 (defn dofile
   ``Evaluate a file, file path, or stream and return the resulting environment. :env, :expander,
   :source, :evaluator, :read, and :parser are passed through to the underlying
   `run-context` call. If `exit` is true, any top level errors will trigger a
   call to `(os/exit 1)` after printing the error.``
-  [path &keys
-   {:exit exit
-    :env env
-    :source src
-    :expander expander
-    :evaluator evaluator
-    :read read
-    :parser parser}]
+  [path &named exit env source expander evaluator read parser]
   (def f (case (type path)
            :core/file path
            :core/stream path
@@ -2737,7 +2815,7 @@
   (def path-is-file (= f path))
   (default env (make-env))
   (def spath (string path))
-  (put env :source (or src (if-not path-is-file spath path)))
+  (put env :source (or source (if-not path-is-file spath path)))
   (var exit-error nil)
   (var exit-fiber nil)
   (defn chunks [buf _] (:read f 4096 buf))
@@ -2773,14 +2851,17 @@
                                    (debug/stacktrace f x "")
                                    (eflush)
                                    (os/exit 1))
-                                 (put env :exit true)
-                                 (set exit-error x)
-                                 (set exit-fiber f)))
+                                 (if (get env :debug)
+                                   ((debugger-on-status env) f x)
+                                   (do
+                                     (put env :exit true)
+                                     (set exit-error x)
+                                     (set exit-fiber f)))))
                   :evaluator evaluator
                   :expander expander
                   :read read
                   :parser parser
-                  :source (or src (if path-is-file :<anonymous> spath))}))
+                  :source (or source (if path-is-file :<anonymous> spath))}))
   (if-not path-is-file (:close f))
   (when exit-error
     (if exit-fiber
@@ -2935,7 +3016,7 @@
        :italics ["*" "*"]
        :bold ["**" "**"]}))
   (def modes @{})
-  (defn toggle [mode]
+  (defn toggle-mode [mode]
     (def active (get modes mode))
     (def delims (get delimiters mode))
     (put modes mode (not active))
@@ -2943,7 +3024,7 @@
 
   # Parse state
   (var cursor 0) # indexes into string for parsing
-  (var stack @[])  # return value for this block.
+  (var stack @[]) # return value for this block.
 
   # Traversal helpers
   (defn c [] (get str cursor))
@@ -3045,7 +3126,7 @@
     (def token @"")
     (var token-length 0)
     (defn delim [mode]
-      (def d (toggle mode))
+      (def d (toggle-mode mode))
       (if-not has-color (+= token-length (length d)))
       (buffer/push token d))
     (defn endtoken []
@@ -3056,44 +3137,48 @@
       (def b (get line i))
       (cond
         (or (= b (chr "\n")) (= b (chr " "))) (endtoken)
-        (= b (chr `\`)) (do
-                          (++ token-length)
-                          (buffer/push token (get line (++ i))))
-        (= b (chr "_")) (delim :underline)
         (= b (chr "`")) (delim :code)
-        (= b (chr "*"))
-          (if (= (chr "*") (get line (+ i 1)))
-            (do (++ i)
-              (delim :bold))
-            (delim :italics))
+        (not (modes :code)) (cond
+          (= b (chr `\`)) (do
+                            (++ token-length)
+                            (buffer/push token (get line (++ i))))
+          (= b (chr "_")) (delim :underline)
+          (= b (chr "*"))
+            (if (= (chr "*") (get line (+ i 1)))
+              (do (++ i)
+                (delim :bold))
+              (delim :italics))
+          (do (++ token-length) (buffer/push token b)))
         (do (++ token-length) (buffer/push token b))))
     (endtoken)
     (tuple/slice tokens))
 
-  (set parse-blocks (fn parse-blocks [indent]
-    (var new-indent indent)
-    (var p-start nil)
-    (var p-end nil)
-    (defn p-line []
-      (unless p-start
-        (set p-start cursor))
-      (skipline)
-      (set p-end cursor)
-      (set new-indent (skipwhite)))
-    (defn finish-p []
-      (when (and p-start (> p-end p-start))
-        (push (tokenize-line (getslice p-start p-end)))
-        (set p-start nil)))
-    (while (and (c) (>= new-indent indent))
-      (cond
-        (nl?) (do (finish-p) (c++) (set new-indent (skipwhite)))
-        (ul?) (do (finish-p) (set new-indent (parse-list ul? :ul new-indent)))
-        (ol?) (do (finish-p) (set new-indent (parse-list ol? :ol new-indent)))
-        (fcb?) (do (finish-p) (set new-indent (parse-fcb new-indent)))
-        (>= new-indent (+ 4 indent)) (do (finish-p) (set new-indent (parse-icb new-indent)))
-        (p-line)))
-    (finish-p)
-    new-indent))
+  (set
+    parse-blocks
+    (fn parse-blocks [indent]
+      (var new-indent indent)
+      (var p-start nil)
+      (var p-end nil)
+      (defn p-line []
+        (unless p-start
+          (set p-start cursor))
+        (skipline)
+        (set p-end cursor)
+        (set new-indent (skipwhite)))
+      (defn finish-p []
+        (when (and p-start (> p-end p-start))
+          (push (tokenize-line (getslice p-start p-end)))
+          (set p-start nil)))
+      (while (and (c) (>= new-indent indent))
+        (cond
+          (nl?) (do (finish-p) (c++) (set new-indent (skipwhite)))
+          (ul?) (do (finish-p) (set new-indent (parse-list ul? :ul new-indent)))
+          (ol?) (do (finish-p) (set new-indent (parse-list ol? :ol new-indent)))
+          (fcb?) (do (finish-p) (set new-indent (parse-fcb new-indent)))
+          (>= new-indent (+ 4 indent)) (do (finish-p) (set new-indent (parse-icb new-indent)))
+          (p-line)))
+      (finish-p)
+      new-indent))
 
   # Handle first line specially for defn, defmacro, etc.
   (when (= (chr "(") (in str 0))
@@ -3230,10 +3315,10 @@
           (do
             (def [fullpath mod-kind] (module/find (string sym)))
             (if-let [mod-env (in module/cache fullpath)]
-              (print-module-entry {:module     true
-                                   :kind       mod-kind
+              (print-module-entry {:module true
+                                   :kind mod-kind
                                    :source-map [fullpath nil nil]
-                                   :doc        (in mod-env :doc)})
+                                   :doc (in mod-env :doc)})
               (print "symbol " sym " not found."))))
         (print-module-entry x)))
 
@@ -3333,25 +3418,26 @@
     (def pc (frame :pc))
     (def sourcemap (in dasm :sourcemap))
     (var last-loc [-2 -2])
-    (print "\n  signal: " (.signal))
-    (print "  function:   " (dasm :name) " [" (in dasm :source "") "]")
+    (eprint "\n  signal:     " (.signal))
+    (eprint "  status:     " (fiber/status (.fiber)))
+    (eprint "  function:   " (get dasm :name "<anonymous>") " [" (in dasm :source "") "]")
     (when-let [constants (dasm :constants)]
-      (printf "  constants:  %.4q" constants))
-    (printf "  slots:      %.4q\n" (frame :slots))
+      (eprintf "  constants:  %.4q" constants))
+    (eprintf "  slots:      %.4q\n" (frame :slots))
     (def padding (string/repeat " " 20))
     (loop [i :range [0 (length bytecode)]
            :let [instr (bytecode i)]]
-      (prin (if (= (tuple/type instr) :brackets) "*" " "))
-      (prin (if (= i pc) "> " "  "))
-      (prinf "%.20s" (string (string/join (map string instr) " ") padding))
+      (eprin (if (= (tuple/type instr) :brackets) "*" " "))
+      (eprin (if (= i pc) "> " "  "))
+      (eprinf "%.20s" (string (string/join (map string instr) " ") padding))
       (when sourcemap
         (let [[sl sc] (sourcemap i)
               loc [sl sc]]
           (when (not= loc last-loc)
             (set last-loc loc)
-            (prin " # line " sl ", column " sc))))
-      (print))
-    (print))
+            (eprin " # line " sl ", column " sc))))
+      (eprint))
+    (eprint))
 
   (defn .breakall
     "Set breakpoints on all instructions in the current function."
@@ -3360,7 +3446,7 @@
     (def bytecode (.bytecode n))
     (forv i 0 (length bytecode)
       (debug/fbreak fun i))
-    (print "Set " (length bytecode) " breakpoints in " fun))
+    (eprint "set " (length bytecode) " breakpoints in " fun))
 
   (defn .clearall
     "Clear all breakpoints on the current function."
@@ -3369,7 +3455,7 @@
     (def bytecode (.bytecode n))
     (forv i 0 (length bytecode)
       (debug/unfbreak fun i))
-    (print "Cleared " (length bytecode) " breakpoints in " fun)))
+    (eprint "cleared " (length bytecode) " breakpoints in " fun)))
 
 (defn .source
   "Show the source code for the function being debugged."
@@ -3377,7 +3463,7 @@
   (def frame (.frame n))
   (def s (frame :source))
   (def all-source (slurp s))
-  (print "\n" all-source "\n"))
+  (eprint "\n" all-source "\n"))
 
 (defn .break
   "Set breakpoint at the current pc."
@@ -3386,7 +3472,7 @@
   (def fun (frame :function))
   (def pc (frame :pc))
   (debug/fbreak fun pc)
-  (print "Set breakpoint in " fun " at pc=" pc))
+  (eprint "set breakpoint in " fun " at pc=" pc))
 
 (defn .clear
   "Clear the current breakpoint."
@@ -3395,7 +3481,7 @@
   (def fun (frame :function))
   (def pc (frame :pc))
   (debug/unfbreak fun pc)
-  (print "Cleared breakpoint in " fun " at pc=" pc))
+  (eprint "cleared breakpoint in " fun " at pc=" pc))
 
 (defn .next
   "Go to the next breakpoint."
@@ -3418,10 +3504,6 @@
   (forv i 0 (or n 1)
     (set res (debug/step (.fiber))))
   res)
-
-(def debugger-env
-  "An environment that contains dot prefixed functions for debugging."
-  @{})
 
 (def- debugger-keys (filter (partial string/has-prefix? ".") (keys root-env)))
 (each k debugger-keys (put debugger-env k (root-env k)) (put root-env k nil))
@@ -3450,43 +3532,9 @@
           ":"
           (:state p :delimiters) "> ")
         buf env)))
-  (defn make-onsignal
-    [e level]
-
-    (defn enter-debugger
-      [f x]
-      (def nextenv (make-env env))
-      (put nextenv :fiber f)
-      (put nextenv :debug-level level)
-      (put nextenv :signal x)
-      (merge-into nextenv debugger-env)
-      (defn debugger-chunks [buf p]
-        (def status (:state p :delimiters))
-        (def c ((:where p) 0))
-        (def prpt (string "debug[" level "]:" c ":" status "> "))
-        (getline prpt buf nextenv))
-      (print "entering debug[" level "] - (quit) to exit")
-      (flush)
-      (repl debugger-chunks (make-onsignal nextenv (+ 1 level)) nextenv)
-      (print "exiting debug[" level "]")
-      (flush)
-      (nextenv :resume-value))
-
-    (fn [f x]
-      (def fs (fiber/status f))
-      (if (= :dead fs)
-        (do
-          (put e '_ @{:value x})
-          (printf (get e :pretty-format "%q") x)
-          (flush))
-        (do
-          (debug/stacktrace f x "")
-          (eflush)
-          (if (e :debug) (enter-debugger f x))))))
-
   (run-context {:env env
                 :chunks chunks
-                :on-status (or onsignal (make-onsignal env 1))
+                :on-status (or onsignal (debugger-on-status env 1 true))
                 :parser parser
                 :read read
                 :source :repl}))
@@ -3510,7 +3558,7 @@
     (ev/go (fn _call [&] (f ;args))))
 
   (defmacro ev/spawn
-    "Run some code in a new fiber. This is shorthand for `(ev/call (fn [] ;body))`."
+    "Run some code in a new fiber. This is shorthand for `(ev/go (fn [] ;body))`."
     [& body]
     ~(,ev/go (fn _spawn [&] ,;body)))
 
@@ -3553,8 +3601,8 @@
          (def ,chan (,ev/chan))
          (def ,res @[])
          (,wait-for-fibers ,chan
-           ,(seq [[i body] :pairs bodies]
-              ~(,ev/go (fn [] (put ,res ,i ,body)) nil ,chan)))
+                           ,(seq [[i body] :pairs bodies]
+                              ~(,ev/go (fn [] (put ,res ,i ,body)) nil ,chan)))
          ,res))))
 
 (compwhen (dyn 'net/listen)
@@ -3565,6 +3613,75 @@
     (if handler
       (ev/call (fn [] (net/accept-loop s handler))))
     s))
+
+###
+###
+### FFI Extra
+###
+###
+
+(defmacro delay
+  "Lazily evaluate a series of expressions. Returns a function that
+  returns the result of the last expression. Will only evaluate the
+  body once, and then memoizes the result."
+  [& forms]
+  (def state (gensym))
+  (def loaded (gensym))
+  ~((fn []
+      (var ,state nil)
+      (var ,loaded nil)
+      (fn []
+        (if ,loaded
+          ,state
+          (do
+            (set ,loaded true)
+            (set ,state (do ,;forms))))))))
+
+(compwhen (dyn 'ffi/native)
+
+  (defdyn *ffi-context* " Current native library for ffi/bind and other settings")
+
+  (defn- default-mangle
+    [name &]
+    (string/replace-all "-" "_" name))
+
+  (defn ffi/context
+    "Set the path of the dynamic library to implictly bind, as well
+     as other global state for ease of creating native bindings."
+    [&opt native-path &named map-symbols lazy]
+    (default map-symbols default-mangle)
+    (def lib (if lazy nil (ffi/native native-path)))
+    (def lazy-lib (if lazy (delay (ffi/native native-path))))
+    (setdyn *ffi-context*
+            @{:native-path native-path
+              :native lib
+              :native-lazy lazy-lib
+              :lazy lazy
+              :map-symbols map-symbols}))
+
+  (defmacro ffi/defbind
+    "Generate bindings for native functions in a convenient manner."
+    [name ret-type & body]
+    (def real-ret-type (eval ret-type))
+    (def meta (slice body 0 -2))
+    (def arg-pairs (partition 2 (last body)))
+    (def formal-args (map 0 arg-pairs))
+    (def type-args (map 1 arg-pairs))
+    (def computed-type-args (eval ~[,;type-args]))
+    (def {:native lib
+          :lazy lazy
+          :native-lazy llib
+          :map-symbols ms} (assert (dyn *ffi-context*) "no ffi context found"))
+    (def raw-symbol (ms name))
+    (defn make-sig []
+      (ffi/signature :default real-ret-type ;computed-type-args))
+    (defn make-ptr []
+      (assert (ffi/lookup (if lazy (llib) lib) raw-symbol) (string "failed to find ffi symbol " raw-symbol)))
+    (if lazy
+        ~(defn ,name ,;meta [,;formal-args]
+           (,ffi/call (,(delay (make-ptr))) (,(delay (make-sig))) ,;formal-args))
+        ~(defn ,name ,;meta [,;formal-args]
+           (,ffi/call ,(make-ptr) ,(make-sig) ,;formal-args)))))
 
 ###
 ###
@@ -3636,7 +3753,7 @@
   (try
     (dofile path :evaluator flycheck-evaluator ;(kvs kwargs))
     ([e f]
-     (debug/stacktrace f e "")))
+      (debug/stacktrace f e "")))
   (table/clear module/cache)
   (merge-into module/cache old-modcache)
   nil)
@@ -3653,10 +3770,18 @@
 
 (defn- run-main
   [env subargs arg]
-  (if-let [entry (in env 'main)
-           main (or (get entry :value) (in (get entry :ref) 0))]
-    (let [thunk (compile [main ;subargs] env arg)]
-      (if (function? thunk) (thunk) (error (thunk :error))))))
+  (when-let [entry (in env 'main)
+             main (or (get entry :value) (in (get entry :ref) 0))]
+    (def guard (if (get env :debug) :ydt :y))
+    (defn wrap-main [&]
+      (main ;subargs))
+    (def f (fiber/new wrap-main guard))
+    (fiber/setenv f env)
+    (var res nil)
+    (while (fiber/can-resume? f)
+      (set res (resume f res))
+      (when (not= :dead (fiber/status f))
+        ((debugger-on-status env) f res)))))
 
 (defdyn *args*
   "Dynamic bindings that will contain command line arguments at program start.")
@@ -3750,7 +3875,7 @@
      "E" (fn E-switch [i &]
            (set no-file false)
            (def subargs (array/slice args (+ i 2)))
-           (def src ~|,(parse (in args (+ i 1))))
+           (def src ~(short-fn ,(parse (in args (+ i 1))) E-expression))
            (def thunk (compile src))
            (if (function? thunk)
              ((thunk) ;subargs)
@@ -3816,8 +3941,8 @@
           (file/read stdin :line buf))
         (def env (make-env))
         (when-let [profile.janet (dyn *profilepath*)]
-            (def new-env (dofile profile.janet :exit true))
-            (merge-module env new-env "" false))
+          (def new-env (dofile profile.janet :exit true))
+          (merge-module env new-env "" false))
         (when debug-flag
           (put env *debug* true)
           (put env *redef* true))
@@ -3838,10 +3963,6 @@
 ###
 
 (do
-
-  # Deprecate file/popen
-  (when-let [v (get root-env 'file/popen)]
-    (put v :deprecated true))
 
   # Modify root-env to remove private symbols and
   # flatten nested tables.
@@ -3907,6 +4028,7 @@
      "src/core/debug.c"
      "src/core/emit.c"
      "src/core/ev.c"
+     "src/core/ffi.c"
      "src/core/fiber.c"
      "src/core/gc.c"
      "src/core/inttypes.c"

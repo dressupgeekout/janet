@@ -112,42 +112,6 @@ static void *makef(FILE *f, int32_t flags) {
     return iof;
 }
 
-/* Open a process */
-#ifndef JANET_NO_PROCESSES
-JANET_CORE_FN(cfun_io_popen,
-              "(file/popen command &opt mode) (DEPRECATED for os/spawn)",
-              "Open a file that is backed by a process. The file must be opened in either "
-              "the :r (read) or the :w (write) mode. In :r mode, the stdout of the "
-              "process can be read from the file. In :w mode, the stdin of the process "
-              "can be written to. Returns the new file.") {
-    janet_arity(argc, 1, 2);
-    const uint8_t *fname = janet_getstring(argv, 0);
-    const uint8_t *fmode = NULL;
-    int32_t flags;
-    if (argc == 2) {
-        fmode = janet_getkeyword(argv, 1);
-        flags = JANET_FILE_PIPED | checkflags(fmode);
-        if (flags & (JANET_FILE_UPDATE | JANET_FILE_BINARY | JANET_FILE_APPEND)) {
-            janet_panicf("invalid popen file mode :%S, expected :r or :w", fmode);
-        }
-        fmode = (const uint8_t *)((fmode[0] == 'r') ? "r" : "w");
-    } else {
-        fmode = (const uint8_t *)"r";
-        flags = JANET_FILE_PIPED | JANET_FILE_READ;
-    }
-#ifdef JANET_WINDOWS
-#define popen _popen
-#endif
-    FILE *f = popen((const char *)fname, (const char *)fmode);
-    if (!f) {
-        if (flags & JANET_FILE_NONIL)
-            janet_panicf("failed to popen %s: %s", fname, strerror(errno));
-        return janet_wrap_nil();
-    }
-    return janet_makefile(f, flags);
-}
-#endif
-
 //JANET_CORE_FN(cfun_io_temp,
 //              "(file/temp)",
 //              "Open an anonymous temporary file that is removed on close. "
@@ -296,7 +260,6 @@ JANET_CORE_FN(cfun_io_fflush,
 }
 
 #ifdef JANET_WINDOWS
-#define pclose _pclose
 #define WEXITSTATUS(x) x
 #endif
 
@@ -304,14 +267,7 @@ JANET_CORE_FN(cfun_io_fflush,
 int janet_file_close(JanetFile *file) {
     int ret = 0;
     if (!(file->flags & (JANET_FILE_NOT_CLOSEABLE | JANET_FILE_CLOSED))) {
-#ifndef JANET_NO_PROCESSES
-        if (file->flags & JANET_FILE_PIPED) {
-            ret = pclose(file->file);
-        } else
-#endif
-        {
-            ret = fclose(file->file);
-        }
+        ret = fclose(file->file);
         file->flags |= JANET_FILE_CLOSED;
         return ret;
     }
@@ -331,30 +287,18 @@ JANET_CORE_FN(cfun_io_fclose,
               "(file/close f)",
               "Close a file and release all related resources. When you are "
               "done reading a file, close it to prevent a resource leak and let "
-              "other processes read the file. If the file is the result of a file/popen "
-              "call, close waits for and returns the process exit status.") {
+              "other processes read the file.") {
     janet_fixarity(argc, 1);
     JanetFile *iof = janet_getabstract(argv, 0, &janet_file_type);
     if (iof->flags & JANET_FILE_CLOSED)
         return janet_wrap_nil();
     if (iof->flags & (JANET_FILE_NOT_CLOSEABLE))
         janet_panic("file not closable");
-    if (iof->flags & JANET_FILE_PIPED) {
-#ifndef JANET_NO_PROCESSES
-        int status = pclose(iof->file);
-        iof->flags |= JANET_FILE_CLOSED;
-        if (status == -1) janet_panic("could not close file");
-        return janet_wrap_integer(WEXITSTATUS(status));
-#else
-        return janet_wrap_nil();
-#endif
-    } else {
-        if (fclose(iof->file)) {
-            iof->flags |= JANET_FILE_NOT_CLOSEABLE;
-            janet_panic("could not close file");
-        }
-        iof->flags |= JANET_FILE_CLOSED;
+    if (fclose(iof->file)) {
+        iof->flags |= JANET_FILE_NOT_CLOSEABLE;
+        janet_panic("could not close file");
     }
+    iof->flags |= JANET_FILE_CLOSED;
     return janet_wrap_nil();
 }
 
@@ -601,6 +545,16 @@ static Janet cfun_io_printf_impl_x(int32_t argc, Janet *argv, int newline,
             if (newline) janet_buffer_push_u8(buf, '\n');
             return janet_wrap_nil();
         }
+        case JANET_FUNCTION: {
+            /* Special case function */
+            JanetFunction *fun = janet_unwrap_function(x);
+            JanetBuffer *buf = janet_buffer(0);
+            janet_buffer_format(buf, fmt, offset, argc, argv);
+            if (newline) janet_buffer_push_u8(buf, '\n');
+            Janet args[1] = { janet_wrap_buffer(buf) };
+            janet_call(fun, 1, args);
+            return janet_wrap_nil();
+        }
         case JANET_NIL:
             f = dflt_file;
             if (f == NULL) janet_panic("cannot print to nil");
@@ -740,6 +694,16 @@ void janet_dynprintf(const char *name, FILE *dflt_file, const char *format, ...)
             janet_buffer_deinit(&buffer);
             break;
         }
+        case JANET_FUNCTION: {
+            JanetFunction *fun = janet_unwrap_function(x);
+            int32_t len = 0;
+            while (format[len]) len++;
+            JanetBuffer *buf = janet_buffer(len);
+            janet_formatbv(buf, format, args);
+            Janet args[1] = { janet_wrap_buffer(buf) };
+            janet_call(fun, 1, args);
+            break;
+        }
         case JANET_BUFFER:
             janet_formatbv(janet_unwrap_buffer(x), format, args);
             break;
@@ -802,9 +766,6 @@ void janet_lib_io(JanetTable *env) {
         JANET_CORE_REG("file/write", cfun_io_fwrite),
         JANET_CORE_REG("file/flush", cfun_io_fflush),
         JANET_CORE_REG("file/seek", cfun_io_fseek),
-#ifndef JANET_NO_PROCESSES
-        JANET_CORE_REG("file/popen", cfun_io_popen),
-#endif
         JANET_REG_END
     };
     janet_core_cfuns_ext(env, NULL, io_cfuns);

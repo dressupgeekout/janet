@@ -42,51 +42,6 @@ extern size_t janet_core_image_size;
 #define JDOC(x) NULL
 #endif
 
-/* Use LoadLibrary on windows or dlopen on posix to load dynamic libaries
- * with native code. */
-#if defined(JANET_NO_DYNAMIC_MODULES)
-typedef int Clib;
-#define load_clib(name) ((void) name, 0)
-#define symbol_clib(lib, sym) ((void) lib, (void) sym, NULL)
-#define error_clib() "dynamic libraries not supported"
-#elif defined(JANET_WINDOWS)
-#include <windows.h>
-typedef HINSTANCE Clib;
-#define load_clib(name) LoadLibrary((name))
-#define symbol_clib(lib, sym) GetProcAddress((lib), (sym))
-static char error_clib_buf[256];
-static char *error_clib(void) {
-    FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-                   NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                   error_clib_buf, sizeof(error_clib_buf), NULL);
-    error_clib_buf[strlen(error_clib_buf) - 1] = '\0';
-    return error_clib_buf;
-}
-#else
-#include <dlfcn.h>
-typedef void *Clib;
-#define load_clib(name) dlopen((name), RTLD_NOW)
-#define symbol_clib(lib, sym) dlsym((lib), (sym))
-#define error_clib() dlerror()
-#endif
-
-static char *get_processed_name(const char *name) {
-    if (name[0] == '.') return (char *) name;
-    const char *c;
-    for (c = name; *c; c++) {
-        if (*c == '/') return (char *) name;
-    }
-    size_t l = (size_t)(c - name);
-    char *ret = janet_malloc(l + 3);
-    if (NULL == ret) {
-        JANET_OUT_OF_MEMORY;
-    }
-    ret[0] = '.';
-    ret[1] = '/';
-    memcpy(ret + 2, name, l + 1);
-    return ret;
-}
-
 JanetModule janet_native(const char *name, const uint8_t **error) {
     char *processed_name = get_processed_name(name);
     Clib lib = load_clib(processed_name);
@@ -156,7 +111,10 @@ JANET_CORE_FN(janet_core_expand_path,
               "This takes in a path (the argument to require) and a template string, "
               "to expand the path to a path that can be "
               "used for importing files. The replacements are as follows:\n\n"
-              "* :all: -- the value of path verbatim\n\n"
+              "* :all: -- the value of path verbatim.\n\n"
+              "* :@all: -- Same as :all:, but if `path` starts with the @ character,\n"
+              "           the first path segment is replaced with a dynamic binding\n"
+              "           `(dyn <first path segment as keyword>)`.\n\n"
               "* :cur: -- the current file, or (dyn :current-file)\n\n"
               "* :dir: -- the directory containing the current file\n\n"
               "* :name: -- the name component of path, with extension if given\n\n"
@@ -202,6 +160,21 @@ JANET_CORE_FN(janet_core_expand_path,
             if (strncmp(template + i, ":all:", 5) == 0) {
                 janet_buffer_push_cstring(out, input);
                 i += 4;
+            } else if (strncmp(template + i, ":@all:", 6) == 0) {
+                if (input[0] == '@') {
+                    const char *p = input;
+                    while (*p && !is_path_sep(*p)) p++;
+                    size_t len = p - input - 1;
+                    char *str = janet_smalloc(len + 1);
+                    memcpy(str, input + 1, len);
+                    str[len] = '\0';
+                    janet_formatb(out, "%V", janet_dyn(str));
+                    janet_sfree(str);
+                    janet_buffer_push_cstring(out, p);
+                } else {
+                    janet_buffer_push_cstring(out, input);
+                }
+                i += 5;
             } else if (strncmp(template + i, ":cur:", 5) == 0) {
                 janet_buffer_push_bytes(out, (const uint8_t *)curdir, curlen);
                 i += 4;
@@ -659,27 +632,39 @@ JANET_CORE_FN(janet_core_signal,
               "(signal what x)",
               "Raise a signal with payload x. ") {
     janet_arity(argc, 1, 2);
-    int sig;
+    Janet payload = argc == 2 ? argv[1] : janet_wrap_nil();
     if (janet_checkint(argv[0])) {
         int32_t s = janet_unwrap_integer(argv[0]);
         if (s < 0 || s > 9) {
             janet_panicf("expected user signal between 0 and 9, got %d", s);
         }
-        sig = JANET_SIGNAL_USER0 + s;
+        janet_signalv(JANET_SIGNAL_USER0 + s, payload);
     } else {
         JanetKeyword kw = janet_getkeyword(argv, 0);
-        if (!janet_cstrcmp(kw, "yield")) {
-            sig = JANET_SIGNAL_YIELD;
-        } else if (!janet_cstrcmp(kw, "error")) {
-            sig = JANET_SIGNAL_ERROR;
-        } else if (!janet_cstrcmp(kw, "debug")) {
-            sig = JANET_SIGNAL_DEBUG;
-        } else {
-            janet_panicf("unknown signal, expected :yield, :error, or :debug, got %v", argv[0]);
+        for (unsigned i = 0; i < sizeof(janet_signal_names) / sizeof(char *); i++) {
+            if (!janet_cstrcmp(kw, janet_signal_names[i])) {
+                janet_signalv((JanetSignal) i, payload);
+            }
         }
     }
-    Janet payload = argc == 2 ? argv[1] : janet_wrap_nil();
-    janet_signalv(sig, payload);
+    janet_panicf("unknown signal %v", argv[0]);
+}
+
+JANET_CORE_FN(janet_core_memcmp,
+              "(memcmp a b &opt len offset-a offset-b)",
+              "Compare memory. Takes to byte sequences `a` and `b`, and "
+              "return 0 if they have identical contents, a negative integer if a is less than b, "
+              "and a positive integer if a is greather than b. Optionally take a length and offsets "
+              "to compare slices of the bytes sequences.") {
+    janet_arity(argc, 2, 5);
+    JanetByteView a = janet_getbytes(argv, 0);
+    JanetByteView b = janet_getbytes(argv, 1);
+    int32_t len = janet_optnat(argv, argc, 2, a.len < b.len ? a.len : b.len);
+    int32_t offset_a = janet_optnat(argv, argc, 3, 0);
+    int32_t offset_b = janet_optnat(argv, argc, 4, 0);
+    if (offset_a + len > a.len) janet_panicf("invalid offset-a: %d", offset_a);
+    if (offset_b + len > b.len) janet_panicf("invalid offset-b: %d", offset_b);
+    return janet_wrap_integer(memcmp(a.bytes + offset_a, b.bytes + offset_b, (size_t) len));
 }
 
 #ifdef JANET_BOOTSTRAP
@@ -983,6 +968,7 @@ static void janet_load_libs(JanetTable *env) {
         JANET_CORE_REG("nat?", janet_core_check_nat),
         JANET_CORE_REG("slice", janet_core_slice),
         JANET_CORE_REG("signal", janet_core_signal),
+        JANET_CORE_REG("memcmp", janet_core_memcmp),
         JANET_CORE_REG("getproto", janet_core_getproto),
         JANET_REG_END
     };
@@ -1015,6 +1001,9 @@ static void janet_load_libs(JanetTable *env) {
 #endif
 #ifdef JANET_NET
     janet_lib_net(env);
+#endif
+#ifdef JANET_FFI
+    janet_lib_ffi(env);
 #endif
 }
 

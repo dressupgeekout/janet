@@ -39,6 +39,14 @@
 #include <sys/stat.h>
 #include <signal.h>
 
+#ifdef JANET_BSD
+#include <sys/sysctl.h>
+#endif
+
+#ifdef JANET_LINUX
+#include <sched.h>
+#endif
+
 #ifdef JANET_WINDOWS
 #include <windows.h>
 #include <direct.h>
@@ -199,6 +207,47 @@ JANET_CORE_FN(os_exit,
     janet_deinit();
     exit(status);
     return janet_wrap_nil();
+}
+
+JANET_CORE_FN(os_cpu_count,
+              "(os/cpu-count &opt dflt)",
+              "Get an approximate number of CPUs available on for this process to use. If "
+              "unable to get an approximation, will return a default value dflt.") {
+    janet_arity(argc, 0, 1);
+    Janet dflt = argc > 0 ? argv[0] : janet_wrap_nil();
+#ifdef JANET_WINDOWS
+    (void) dflt;
+    SYSTEM_INFO info;
+    GetSystemInfo(&info);
+    return janet_wrap_integer(info.dwNumberOfProcessors);
+#elif defined(JANET_LINUX)
+    (void) dflt;
+    cpu_set_t cs;
+    CPU_ZERO(&cs);
+    sched_getaffinity(0, sizeof(cs), &cs);
+    int count = CPU_COUNT(&cs);
+    return janet_wrap_integer(count);
+#elif defined(JANET_BSD) && defined(HW_NCPUONLINE)
+    (void) dflt;
+    const int name[2] = {CTL_HW, HW_NCPUONLINE};
+    int result = 0;
+    size_t len = sizeof(int);
+    if (-1 == sysctl(name, 2, &result, &len, NULL, 0)) {
+        return dflt;
+    }
+    return janet_wrap_integer(result);
+#elif defined(JANET_BSD) && defined(HW_NCPU)
+    (void) dflt;
+    const int name[2] = {CTL_HW, HW_NCPU};
+    int result = 0;
+    size_t len = sizeof(int);
+    if (-1 == sysctl(name, 2, &result, &len, NULL, 0)) {
+        return dflt;
+    }
+    return janet_wrap_integer(result);
+#else
+    return dflt;
+#endif
 }
 
 #ifndef JANET_REDUCED_OS
@@ -421,15 +470,7 @@ static int proc_get_status(JanetProc *proc) {
 /* Function that is called in separate thread to wait on a pid */
 static JanetEVGenericMessage janet_proc_wait_subr(JanetEVGenericMessage args) {
     JanetProc *proc = (JanetProc *) args.argp;
-#ifdef WNOWAIT
-    pid_t result;
-    int status = 0;
-    do {
-        result = waitpid(proc->pid, &status, WNOWAIT);
-    } while (result == -1 && errno == EINTR);
-#else
     args.tag = proc_get_status(proc);
-#endif
     return args;
 }
 
@@ -440,11 +481,7 @@ static void janet_proc_wait_cb(JanetEVGenericMessage args) {
     janet_ev_dec_refcount();
     JanetProc *proc = (JanetProc *) args.argp;
     if (NULL != proc) {
-#ifdef WNOWAIT
-        int status = proc_get_status(proc);
-#else
         int status = args.tag;
-#endif
         proc->return_code = (int32_t) status;
         proc->flags |= JANET_PROC_WAITED;
         proc->flags &= ~JANET_PROC_WAITING;
@@ -1072,8 +1109,8 @@ JANET_CORE_FN(os_spawn,
               "Execute a program on the system and return a handle to the process. Otherwise, takes the "
               "same arguments as `os/execute`. Does not wait for the process. "
               "For each of the :in, :out, and :err keys to the `env` argument, one "
-              "can also pass in the keyword `:pipe`"
-              "to get streams for standard IO of the subprocess that can be read from and written to."
+              "can also pass in the keyword `:pipe` "
+              "to get streams for standard IO of the subprocess that can be read from and written to. "
               "The returned value `proc` has the fields :in, :out, :err, :return-code, and "
               "the additional field :pid on unix-like platforms. Use `(os/proc-wait proc)` to rejoin the "
               "subprocess or `(os/proc-kill proc)`.") {
@@ -1287,7 +1324,7 @@ JANET_CORE_FN(os_date,
     time_t t;
     struct tm t_infos;
     struct tm *t_info = NULL;
-    if (argc) {
+    if (argc && !janet_checktype(argv[0], JANET_NIL)) {
         int64_t integer = janet_getinteger64(argv, 0);
         t = (time_t) integer;
     } else {
@@ -1296,6 +1333,7 @@ JANET_CORE_FN(os_date,
     if (argc >= 2 && janet_truthy(argv[1])) {
         /* local time */
 #ifdef JANET_WINDOWS
+        _tzset();
         localtime_s(&t_infos, &t);
         t_info = &t_infos;
 #else
@@ -1772,11 +1810,9 @@ static Janet os_stat_or_lstat(int do_lstat, int32_t argc, Janet *argv) {
     janet_arity(argc, 1, 2);
     const char *path = janet_getcstring(argv, 0);
     JanetTable *tab = NULL;
-    int getall = 1;
-    const uint8_t *key;
+    const uint8_t *key = NULL;
     if (argc == 2) {
         if (janet_checktype(argv[1], JANET_KEYWORD)) {
-            getall = 0;
             key = janet_getkeyword(argv, 1);
         } else {
             tab = janet_gettable(argv, 1);
@@ -1802,7 +1838,7 @@ static Janet os_stat_or_lstat(int do_lstat, int32_t argc, Janet *argv) {
         return janet_wrap_nil();
     }
 
-    if (getall) {
+    if (NULL == key) {
         /* Put results in table */
         for (const struct OsStatGetter *sg = os_stat_getters; sg->name != NULL; sg++) {
             janet_table_put(tab, janet_ckeywordv(sg->name), sg->fn(&st));
@@ -1986,23 +2022,23 @@ JANET_CORE_FN(os_open,
               "Allowed flags are as follows:\n\n"
               "  * :r - open this file for reading\n"
               "  * :w - open this file for writing\n"
-              "  * :c - create a new file (O_CREATE)\n"
-              "  * :e - fail if the file exists (O_EXCL)\n"
-              "  * :t - shorten an existing file to length 0 (O_TRUNC)\n\n"
+              "  * :c - create a new file (O\\_CREATE)\n"
+              "  * :e - fail if the file exists (O\\_EXCL)\n"
+              "  * :t - shorten an existing file to length 0 (O\\_TRUNC)\n\n"
               "Posix-only flags:\n\n"
-              "  * :a - append to a file (O_APPEND)\n"
-              "  * :x - O_SYNC\n"
-              "  * :C - O_NOCTTY\n\n"
+              "  * :a - append to a file (O\\_APPEND)\n"
+              "  * :x - O\\_SYNC\n"
+              "  * :C - O\\_NOCTTY\n\n"
               "Windows-only flags:\n\n"
-              "  * :R - share reads (FILE_SHARE_READ)\n"
-              "  * :W - share writes (FILE_SHARE_WRITE)\n"
-              "  * :D - share deletes (FILE_SHARE_DELETE)\n"
-              "  * :H - FILE_ATTRIBUTE_HIDDEN\n"
-              "  * :O - FILE_ATTRIBUTE_READONLY\n"
-              "  * :F - FILE_ATTRIBUTE_OFFLINE\n"
-              "  * :T - FILE_ATTRIBUTE_TEMPORARY\n"
-              "  * :d - FILE_FLAG_DELETE_ON_CLOSE\n"
-              "  * :b - FILE_FLAG_NO_BUFFERING\n") {
+              "  * :R - share reads (FILE\\_SHARE\\_READ)\n"
+              "  * :W - share writes (FILE\\_SHARE\\_WRITE)\n"
+              "  * :D - share deletes (FILE\\_SHARE\\_DELETE)\n"
+              "  * :H - FILE\\_ATTRIBUTE\\_HIDDEN\n"
+              "  * :O - FILE\\_ATTRIBUTE\\_READONLY\n"
+              "  * :F - FILE\\_ATTRIBUTE\\_OFFLINE\n"
+              "  * :T - FILE\\_ATTRIBUTE\\_TEMPORARY\n"
+              "  * :d - FILE\\_FLAG\\_DELETE\\_ON\\_CLOSE\n"
+              "  * :b - FILE\\_FLAG\\_NO\\_BUFFERING\n") {
     janet_arity(argc, 1, 3);
     const char *path = janet_getcstring(argv, 0);
     const uint8_t *opt_flags = janet_optkeyword(argv, argc, 1, (const uint8_t *) "r");
@@ -2099,20 +2135,18 @@ JANET_CORE_FN(os_open,
 #ifdef JANET_LINUX
     open_flags |= O_CLOEXEC;
 #endif
+    int read_flag = 0;
+    int write_flag = 0;
     for (const uint8_t *c = opt_flags; *c; c++) {
         switch (*c) {
             default:
                 break;
             case 'r':
-                open_flags = (open_flags & O_WRONLY)
-                             ? ((open_flags & ~O_WRONLY) | O_RDWR)
-                             : (open_flags | O_RDONLY);
+                read_flag = 1;
                 stream_flags |= JANET_STREAM_READABLE;
                 break;
             case 'w':
-                open_flags = (open_flags & O_RDONLY)
-                             ? ((open_flags & ~O_RDONLY) | O_RDWR)
-                             : (open_flags | O_WRONLY);
+                write_flag = 1;
                 stream_flags |= JANET_STREAM_WRITABLE;
                 break;
             case 'c':
@@ -2136,6 +2170,15 @@ JANET_CORE_FN(os_open,
                 break;
         }
     }
+    /* If both read and write, fix up to O_RDWR */
+    if (read_flag && !write_flag) {
+        open_flags |= O_RDONLY;
+    } else if (write_flag && !read_flag) {
+        open_flags |= O_WRONLY;
+    } else {
+        open_flags = O_RDWR;
+    }
+
     do {
         fd = open(path, open_flags, mode);
     } while (fd == -1 && errno == EINTR);
@@ -2195,6 +2238,7 @@ void janet_lib_os(JanetTable *env) {
         JANET_CORE_REG("os/chmod", os_chmod),
         JANET_CORE_REG("os/touch", os_touch),
         JANET_CORE_REG("os/cd", os_cd),
+        JANET_CORE_REG("os/cpu-count", os_cpu_count),
 #ifndef JANET_NO_UMASK
         JANET_CORE_REG("os/umask", os_umask),
 #endif

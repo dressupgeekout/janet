@@ -211,9 +211,10 @@ tail:
         }
 
         case RULE_SET: {
+            if (text >= s->text_end) return NULL;
             uint32_t word = rule[1 + (text[0] >> 5)];
             uint32_t mask = (uint32_t)1 << (text[0] & 0x1F);
-            return (text < s->text_end && (word & mask))
+            return (word & mask)
                    ? text + 1
                    : NULL;
         }
@@ -260,30 +261,52 @@ tail:
             goto tail;
         }
 
-        case RULE_IF:
-        case RULE_IFNOT: {
+        case RULE_IF: {
             const uint32_t *rule_a = s->bytecode + rule[1];
             const uint32_t *rule_b = s->bytecode + rule[2];
             down1(s);
             const uint8_t *result = peg_rule(s, rule_a, text);
             up1(s);
-            if (rule[0] == RULE_IF ? !result : !!result) return NULL;
+            if (!result) return NULL;
             rule = rule_b;
             goto tail;
+        }
+        case RULE_IFNOT: {
+            const uint32_t *rule_a = s->bytecode + rule[1];
+            const uint32_t *rule_b = s->bytecode + rule[2];
+            down1(s);
+            CapState cs = cap_save(s);
+            const uint8_t *result = peg_rule(s, rule_a, text);
+            if (!!result) {
+                up1(s);
+                return NULL;
+            } else {
+                cap_load(s, cs);
+                up1(s);
+                rule = rule_b;
+                goto tail;
+            }
         }
 
         case RULE_NOT: {
             const uint32_t *rule_a = s->bytecode + rule[1];
             down1(s);
+            CapState cs = cap_save(s);
             const uint8_t *result = peg_rule(s, rule_a, text);
-            up1(s);
-            return (result) ? NULL : text;
+            if (result) {
+                up1(s);
+                return NULL;
+            } else {
+                cap_load(s, cs);
+                up1(s);
+                return text;
+            }
         }
 
         case RULE_THRU:
         case RULE_TO: {
             const uint32_t *rule_a = s->bytecode + rule[1];
-            const uint8_t *next_text;
+            const uint8_t *next_text = NULL;
             CapState cs = cap_save(s);
             down1(s);
             while (text <= s->text_end) {
@@ -1661,7 +1684,9 @@ static PegCall peg_cfun_init(int32_t argc, Janet *argv, int get_replace) {
 }
 
 static void peg_call_reset(PegCall *c) {
+    c->s.depth = JANET_RECURSION_GUARD;
     c->s.captures->count = 0;
+    c->s.tagged_captures->count = 0;
     c->s.scratch->count = 0;
     c->s.tags->count = 0;
 }

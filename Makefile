@@ -54,29 +54,6 @@ BUILD_CFLAGS:=$(CFLAGS) $(COMMON_CFLAGS)
 # For installation
 LDCONFIG:=ldconfig "$(LIBDIR)"
 
-# Check OS
-#UNAME:=$(shell uname -s)
-#ifeq ($(UNAME), Darwin)
-#	CLIBS:=$(CLIBS) -ldl
-#	SONAME_SETTER:=-Wl,-install_name,
-#	JANET_LIBRARY=build/libjanet.dylib
-#	LDCONFIG:=true
-#else ifeq ($(UNAME), Linux)
-#	CLIBS:=$(CLIBS) -lrt -ldl
-#endif
-#
-## For other unix likes, add flags here!
-#ifeq ($(UNAME), Haiku)
-#	LDCONFIG:=true
-#	LDFLAGS=-Wl,--export-dynamic
-#endif
-## For Android (termux)
-#ifeq ($(UNAME), Linux) # uname on Darwin doesn't recognise -o
-#ifeq ($(shell uname -o), Android)
-#	CLIBS:=$(CLIBS) -landroid-spawn
-#endif
-#endif
-
 $(shell mkdir -p build/core build/c build/boot)
 all: $(JANET_TARGET) $(JANET_STATIC_LIBRARY)
 

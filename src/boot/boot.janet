@@ -3949,11 +3949,11 @@
         (def getter (if raw-stdin getstdin getline))
         (defn getchunk [buf p]
           (getter (getprompt p) buf env))
-        (setdyn :pretty-format (if colorize "%.20Q" "%.20q"))
-        (setdyn :err-color (if colorize true))
-        (setdyn :doc-color (if colorize true))
-        (setdyn :lint-error error-level)
-        (setdyn :lint-warn error-level)
+        (setdyn *pretty-format* (if colorize "%.20Q" "%.20q"))
+        (setdyn *err-color* (if colorize true))
+        (setdyn *doc-color* (if colorize true))
+        (setdyn *lint-error* error-level)
+        (setdyn *lint-warn* error-level)
         (repl getchunk nil env)))))
 
 ###

@@ -44,39 +44,17 @@ SONAME_SETTER=-Wl,-soname,
 # For cross compilation
 HOSTCC?=$(CC)
 HOSTAR?=$(AR)
-CFLAGS?=-O2 -nostdlib 
+HOSTSTRIP?=$(STRIP)
+CFLAGS?=-Os -nostdlib
 LIBCMINI=/Users/charlotte/devel/atari/freemint/libcmini/build
 LDFLAGS?=-nostdlib $(LIBCMINI)/crt0.o -L$(LIBCMINI)
 
 COMMON_CFLAGS:=-std=c99 -Wall -Wextra -Isrc/include -Isrc/conf -fvisibility=hidden -DATARI
-BOOT_CFLAGS:=-DJANET_BOOTSTRAP -DJANET_BUILD=$(JANET_BUILD) -O0 -g $(COMMON_CFLAGS)
+BOOT_CFLAGS:=-DJANET_BOOTSTRAP -DJANET_BUILD=$(JANET_BUILD) -Os -g $(COMMON_CFLAGS)
 BUILD_CFLAGS:=$(CFLAGS) $(COMMON_CFLAGS)
 
 # For installation
 LDCONFIG:=ldconfig "$(LIBDIR)"
-
-# Check OS
-#UNAME:=$(shell uname -s)
-#ifeq ($(UNAME), Darwin)
-#	CLIBS:=$(CLIBS) -ldl
-#	SONAME_SETTER:=-Wl,-install_name,
-#	JANET_LIBRARY=build/libjanet.dylib
-#	LDCONFIG:=true
-#else ifeq ($(UNAME), Linux)
-#	CLIBS:=$(CLIBS) -lrt -ldl
-#endif
-#
-## For other unix likes, add flags here!
-#ifeq ($(UNAME), Haiku)
-#	LDCONFIG:=true
-#	LDFLAGS=-Wl,--export-dynamic
-#endif
-## For Android (termux)
-#ifeq ($(UNAME), Linux) # uname on Darwin doesn't recognise -o
-#ifeq ($(shell uname -o), Android)
-#	CLIBS:=$(CLIBS) -landroid-spawn
-#endif
-#endif
 
 $(shell mkdir -p build/core build/c build/boot)
 all: $(JANET_TARGET) $(JANET_STATIC_LIBRARY)
@@ -192,12 +170,14 @@ build/shell.o: build/c/shell.c $(JANETCONF_HEADER) src/include/janet.h
 
 $(JANET_TARGET): build/janet.o build/shell.o
 	$(HOSTCC) $(LDFLAGS) $(BUILD_CFLAGS) -o $@ $^ $(CLIBS) -lcmini -lgcc
+	$(HOSTSTRIP) $@
 
 $(JANET_LIBRARY): build/janet.o build/shell.o
 	$(HOSTCC) $(LDFLAGS) $(BUILD_CFLAGS) $(SONAME_SETTER)$(SONAME) -shared -o $@ $^ $(CLIBS)
 
 $(JANET_STATIC_LIBRARY): build/janet.o build/shell.o
 	$(HOSTAR) rcs $@ $^
+	$(HOSTSTRIP) $@
 
 ###################
 ##### Testing #####

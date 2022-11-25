@@ -48,7 +48,7 @@ CFLAGS?=-O2 -nostdlib
 LIBCMINI=/Users/charlotte/devel/atari/freemint/libcmini/build
 LDFLAGS?=-nostdlib $(LIBCMINI)/crt0.o -L$(LIBCMINI)
 
-COMMON_CFLAGS:=-std=c99 -Wall -Wextra -Isrc/include -Isrc/conf -fvisibility=hidden 
+COMMON_CFLAGS:=-std=c99 -Wall -Wextra -Isrc/include -Isrc/conf -fvisibility=hidden -DATARI
 BOOT_CFLAGS:=-DJANET_BOOTSTRAP -DJANET_BUILD=$(JANET_BUILD) -O0 -g $(COMMON_CFLAGS)
 BUILD_CFLAGS:=$(CFLAGS) $(COMMON_CFLAGS)
 

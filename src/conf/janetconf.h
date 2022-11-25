@@ -25,7 +25,7 @@
 #define JANET_REDUCED_OS
 #define JANET_NO_PROCESSES
 /* #define JANET_NO_ASSEMBLER */
-/* #define JANET_NO_PEG */
+#define JANET_NO_PEG
 #define JANET_NO_NET
 /* #define JANET_NO_INT_TYPES */
 #define JANET_NO_EV

@@ -44,6 +44,7 @@ SONAME_SETTER=-Wl,-soname,
 # For cross compilation
 HOSTCC?=$(CC)
 HOSTAR?=$(AR)
+HOSTSTRIP?=$(STRIP)
 CFLAGS?=-O2
 LDFLAGS?=
 
@@ -168,12 +169,14 @@ build/shell.o: build/c/shell.c $(JANETCONF_HEADER) src/include/janet.h
 
 $(JANET_TARGET): build/janet.o build/shell.o
 	$(HOSTCC) $(LDFLAGS) $(BUILD_CFLAGS) -o $@ $^ $(CLIBS)
+	$(HOSTSTRIP) $@
 
 $(JANET_LIBRARY): build/janet.o build/shell.o
 	$(HOSTCC) $(LDFLAGS) $(BUILD_CFLAGS) $(SONAME_SETTER)$(SONAME) -shared -o $@ $^ $(CLIBS)
 
 $(JANET_STATIC_LIBRARY): build/janet.o build/shell.o
 	$(HOSTAR) rcs $@ $^
+	$(HOSTSTRIP) $@
 
 ###################
 ##### Testing #####

@@ -9,4 +9,4 @@ set -ex
 MAKE=${MAKE:-make}
 TRIPLE=${TRIPLE:-m68k-atari-mint}
 
-${MAKE} HOSTCC=${TRIPLE}-gcc HOSTAR=${TRIPLE}-ar
+${MAKE} HOSTCC=${TRIPLE}-gcc HOSTAR=${TRIPLE}-ar HOSTSTRIP=${TRIPLE}-strip

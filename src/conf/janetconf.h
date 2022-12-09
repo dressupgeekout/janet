@@ -24,10 +24,10 @@
 #define JANET_NO_SOURCEMAPS
 #define JANET_REDUCED_OS
 #define JANET_NO_PROCESSES
-/* #define JANET_NO_ASSEMBLER */
+#define JANET_NO_ASSEMBLER
 #define JANET_NO_PEG
 #define JANET_NO_NET
-/* #define JANET_NO_INT_TYPES */
+#define JANET_NO_INT_TYPES
 #define JANET_NO_EV
 #define JANET_NO_REALPATH
 #define JANET_NO_SYMLINKS
@@ -49,8 +49,8 @@
 /* #define JANET_STACK_MAX 16384 */
 /* #define JANET_OS_NAME my-custom-os */
 /* #define JANET_ARCH_NAME pdp-8 */
-/* #define JANET_EV_NO_EPOLL */
-/* #define JANET_EV_NO_KQUEUE */
+#define JANET_EV_NO_EPOLL
+#define JANET_EV_NO_KQUEUE
 /* #define JANET_NO_INTERPRETER_INTERRUPT */
 
 /* Custom vm allocator support */
@@ -61,6 +61,6 @@
 /* #define janet_free(X) mi_free((X)) */
 
 /* Main client settings, does not affect library code */
-/* #define JANET_SIMPLE_GETLINE */
+#define JANET_SIMPLE_GETLINE
 
 #endif /* end of include guard: JANETCONF_H */

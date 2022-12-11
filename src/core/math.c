@@ -261,6 +261,7 @@ JANET_CORE_FN(janet_##name, "(math/" #name " x)", doc) {\
     return janet_wrap_number(fop(x)); \
 }
 
+#ifndef ATARI
 JANET_DEFINE_MATHOP(acos, acos, "Returns the arccosine of x.")
 JANET_DEFINE_MATHOP(asin, asin, "Returns the arcsin of x.")
 JANET_DEFINE_MATHOP(atan, atan, "Returns the arctangent of x.")
@@ -279,18 +280,23 @@ JANET_DEFINE_MATHOP(expm1, expm1, "Returns e to the power of x minus 1.")
 JANET_DEFINE_MATHOP(log, log, "Returns the natural logarithm of x.")
 JANET_DEFINE_MATHOP(log10, log10, "Returns the log base 10 of x.")
 JANET_DEFINE_MATHOP(log2, log2, "Returns the log base 2 of x.")
+#endif
 JANET_DEFINE_MATHOP(sqrt, sqrt, "Returns the square root of x.")
 JANET_DEFINE_MATHOP(cbrt, cbrt, "Returns the cube root of x.")
 JANET_DEFINE_MATHOP(ceil, ceil, "Returns the smallest integer value number that is not less than x.")
+#ifndef ATARI
 JANET_DEFINE_MATHOP(fabs, fabs, "Return the absolute value of x.")
+#endif
 JANET_DEFINE_MATHOP(floor, floor, "Returns the largest integer value number that is not greater than x.")
 JANET_DEFINE_MATHOP(trunc, trunc, "Returns the integer between x and 0 nearest to x.")
 JANET_DEFINE_MATHOP(round, round, "Returns the integer nearest to x.")
+#ifndef ATARI
 JANET_DEFINE_MATHOP(gamma, tgamma, "Returns gamma(x).")
 JANET_DEFINE_MATHOP(lgamma, lgamma, "Returns log-gamma(x).")
 JANET_DEFINE_MATHOP(log1p, log1p, "Returns (log base e of x) + 1 more accurately than (+ (math/log x) 1)")
 JANET_DEFINE_MATHOP(erf, erf, "Returns the error function of x.")
 JANET_DEFINE_MATHOP(erfc, erfc, "Returns the complementary error function of x.")
+#endif
 
 #define JANET_DEFINE_MATH2OP(name, fop, signature, doc)\
 JANET_CORE_FN(janet_##name, signature, doc) {\
@@ -300,16 +306,19 @@ JANET_CORE_FN(janet_##name, signature, doc) {\
     return janet_wrap_number(fop(lhs, rhs)); \
 }
 
+#ifndef ATARI
 JANET_DEFINE_MATH2OP(atan2, atan2, "(math/atan2 y x)", "Returns the arctangent of y/x. Works even when x is 0.")
 JANET_DEFINE_MATH2OP(pow, pow, "(math/pow a x)", "Returns a to the power of x.")
 JANET_DEFINE_MATH2OP(hypot, hypot, "(math/hypot a b)", "Returns c from the equation c^2 = a^2 + b^2.")
 JANET_DEFINE_MATH2OP(nextafter, nextafter,  "(math/next x y)", "Returns the next representable floating point vaue after x in the direction of y.")
+#endif
 
 JANET_CORE_FN(janet_not, "(not x)", "Returns the boolean inverse of x.") {
     janet_fixarity(argc, 1);
     return janet_wrap_boolean(!janet_truthy(argv[0]));
 }
 
+#ifndef ATARI
 static double janet_gcd(double x, double y) {
     if (isnan(x) || isnan(y)) {
 #ifdef NAN
@@ -326,11 +335,15 @@ static double janet_gcd(double x, double y) {
     }
     return x;
 }
+#endif
 
+#ifndef ATARI
 static double janet_lcm(double x, double y) {
     return (x / janet_gcd(x, y)) * y;
 }
+#endif
 
+#ifndef ATARI
 JANET_CORE_FN(janet_cfun_gcd, "(math/gcd x y)",
               "Returns the greatest common divisor between x and y.") {
     janet_fixarity(argc, 2);
@@ -338,7 +351,9 @@ JANET_CORE_FN(janet_cfun_gcd, "(math/gcd x y)",
     double y = janet_getnumber(argv, 1);
     return janet_wrap_number(janet_gcd(x, y));
 }
+#endif
 
+#ifndef ATARI
 JANET_CORE_FN(janet_cfun_lcm, "(math/lcm x y)",
               "Returns the least common multiple of x and y.") {
     janet_fixarity(argc, 2);
@@ -346,6 +361,7 @@ JANET_CORE_FN(janet_cfun_lcm, "(math/lcm x y)",
     double y = janet_getnumber(argv, 1);
     return janet_wrap_number(janet_lcm(x, y));
 }
+#endif
 
 /* Module entry point */
 void janet_lib_math(JanetTable *env) {
@@ -353,6 +369,7 @@ void janet_lib_math(JanetTable *env) {
         JANET_CORE_REG("not", janet_not),
         JANET_CORE_REG("math/random", janet_rand),
         JANET_CORE_REG("math/seedrandom", janet_srand),
+#ifndef ATARI
         JANET_CORE_REG("math/cos", janet_cos),
         JANET_CORE_REG("math/sin", janet_sin),
         JANET_CORE_REG("math/tan", janet_tan),
@@ -363,10 +380,12 @@ void janet_lib_math(JanetTable *env) {
         JANET_CORE_REG("math/log", janet_log),
         JANET_CORE_REG("math/log10", janet_log10),
         JANET_CORE_REG("math/log2", janet_log2),
+#endif
         JANET_CORE_REG("math/sqrt", janet_sqrt),
         JANET_CORE_REG("math/cbrt", janet_cbrt),
         JANET_CORE_REG("math/floor", janet_floor),
         JANET_CORE_REG("math/ceil", janet_ceil),
+#ifndef ATARI
         JANET_CORE_REG("math/pow", janet_pow),
         JANET_CORE_REG("math/abs", janet_fabs),
         JANET_CORE_REG("math/sinh", janet_sinh),
@@ -376,10 +395,12 @@ void janet_lib_math(JanetTable *env) {
         JANET_CORE_REG("math/asinh", janet_asinh),
         JANET_CORE_REG("math/acosh", janet_acosh),
         JANET_CORE_REG("math/atan2", janet_atan2),
+#endif
         JANET_CORE_REG("math/rng", cfun_rng_make),
         JANET_CORE_REG("math/rng-uniform", cfun_rng_uniform),
         JANET_CORE_REG("math/rng-int", cfun_rng_int),
         JANET_CORE_REG("math/rng-buffer", cfun_rng_buffer),
+#ifndef ATARI
         JANET_CORE_REG("math/hypot", janet_hypot),
         JANET_CORE_REG("math/exp2", janet_exp2),
         JANET_CORE_REG("math/log1p", janet_log1p),
@@ -388,11 +409,14 @@ void janet_lib_math(JanetTable *env) {
         JANET_CORE_REG("math/erfc", janet_erfc),
         JANET_CORE_REG("math/erf", janet_erf),
         JANET_CORE_REG("math/expm1", janet_expm1),
+#endif
         JANET_CORE_REG("math/trunc", janet_trunc),
         JANET_CORE_REG("math/round", janet_round),
+#ifndef ATARI
         JANET_CORE_REG("math/next", janet_nextafter),
         JANET_CORE_REG("math/gcd", janet_cfun_gcd),
         JANET_CORE_REG("math/lcm", janet_cfun_lcm),
+#endif
         JANET_REG_END
     };
     janet_core_cfuns_ext(env, NULL, math_cfuns);

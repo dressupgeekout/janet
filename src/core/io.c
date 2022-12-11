@@ -29,7 +29,7 @@
 #include <stdio.h>
 #include <errno.h>
 
-#ifndef JANET_WINDOWS
+#if !defined(JANET_WINDOWS) && !defined(ATARI)
 #include <fcntl.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -103,7 +103,7 @@ static void *makef(FILE *f, int32_t flags) {
     JanetFile *iof = (JanetFile *) janet_abstract(&janet_file_type, sizeof(JanetFile));
     iof->file = f;
     iof->flags = flags;
-#ifndef JANET_WINDOWS
+#if !defined(JANET_WINDOWS) && !defined(ATARI)
     /* While we would like fopen to set cloexec by default (like O_CLOEXEC) with the e flag, that is
      * not standard. */
     if (!(flags & JANET_FILE_NOT_CLOSEABLE))
@@ -112,6 +112,7 @@ static void *makef(FILE *f, int32_t flags) {
     return iof;
 }
 
+#ifndef ATARI
 JANET_CORE_FN(cfun_io_temp,
               "(file/temp)",
               "Open an anonymous temporary file that is removed on close. "
@@ -124,6 +125,7 @@ JANET_CORE_FN(cfun_io_temp,
         janet_panicf("unable to create temporary file - %s", strerror(errno));
     return janet_makefile(tmp, JANET_FILE_WRITE | JANET_FILE_READ | JANET_FILE_BINARY);
 }
+#endif
 
 JANET_CORE_FN(cfun_io_fopen,
               "(file/open path &opt mode)",
@@ -759,7 +761,9 @@ void janet_lib_io(JanetTable *env) {
         JANET_CORE_REG("xprinf", cfun_io_xprinf),
         JANET_CORE_REG("flush", cfun_io_flush),
         JANET_CORE_REG("eflush", cfun_io_eflush),
+#ifndef ATARI
         JANET_CORE_REG("file/temp", cfun_io_temp),
+#endif
         JANET_CORE_REG("file/open", cfun_io_fopen),
         JANET_CORE_REG("file/close", cfun_io_fclose),
         JANET_CORE_REG("file/read", cfun_io_fread),

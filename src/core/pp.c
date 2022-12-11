@@ -29,7 +29,13 @@
 #endif
 
 #include <string.h>
+#ifndef ATARI
 #include <ctype.h>
+#endif
+
+#ifdef ATARI
+#define isdigit(c) ((c >= '0') && (c <= '9'))
+#endif
 
 /* Implements a pretty printer for Janet. The pretty printer
  * is simple and not that flexible, but fast. */

@@ -516,6 +516,7 @@ JANET_CORE_FN(cfun_io_eprin,
     return cfun_io_print_impl(argc, argv, 0, "err", stderr);
 }
 
+#ifndef ATARI
 JANET_CORE_FN(cfun_io_xprint,
               "(xprint to & xs)",
               "Print to a file or other value explicitly (no dynamic bindings) with a trailing "
@@ -532,6 +533,7 @@ JANET_CORE_FN(cfun_io_xprin,
     janet_arity(argc, 1, -1);
     return cfun_io_print_impl_x(argc, argv, 0, NULL, 1, argv[0]);
 }
+#endif
 
 static Janet cfun_io_printf_impl_x(int32_t argc, Janet *argv, int newline,
                                    FILE *dflt_file, int32_t offset, Janet x) {
@@ -618,6 +620,7 @@ JANET_CORE_FN(cfun_io_eprinf,
     return cfun_io_printf_impl(argc, argv, 0, "err", stderr);
 }
 
+#ifndef ATARI
 JANET_CORE_FN(cfun_io_xprintf,
               "(xprintf to fmt & xs)",
               "Like `printf` but prints to an explicit file or value `to`. Returns nil.") {
@@ -631,6 +634,7 @@ JANET_CORE_FN(cfun_io_xprinf,
     janet_arity(argc, 2, -1);
     return cfun_io_printf_impl_x(argc, argv, 0, NULL, 1, argv[0]);
 }
+#endif
 
 static void janet_flusher(const char *name, FILE *dflt_file) {
     Janet x = janet_dyn(name);
@@ -755,10 +759,12 @@ void janet_lib_io(JanetTable *env) {
         JANET_CORE_REG("eprint", cfun_io_eprint),
         JANET_CORE_REG("eprintf", cfun_io_eprintf),
         JANET_CORE_REG("eprinf", cfun_io_eprinf),
+#ifndef ATARI
         JANET_CORE_REG("xprint", cfun_io_xprint),
         JANET_CORE_REG("xprin", cfun_io_xprin),
         JANET_CORE_REG("xprintf", cfun_io_xprintf),
         JANET_CORE_REG("xprinf", cfun_io_xprinf),
+#endif
         JANET_CORE_REG("flush", cfun_io_flush),
         JANET_CORE_REG("eflush", cfun_io_eflush),
 #ifndef ATARI

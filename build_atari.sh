@@ -9,7 +9,11 @@ set -ex
 MAKE=${MAKE:-make}
 TRIPLE=${TRIPLE:-m68k-atari-mint}
 
-${MAKE} build/c/janet.c -j4 \
+${MAKE} build/janet -j4 \
+  CC=${TRIPLE}-gcc \
+  AR=${TRIPLE}-ar \
+  RANLIB=${TRIPLE}-ranlib \
+  STRIP=${TRIPLE}-strip
   HOSTCC=${TRIPLE}-gcc \
   HOSTAR=${TRIPLE}-ar \
   HOSTRANLIB=${TRIPLE}-ranlib \

@@ -47,6 +47,10 @@ HAS_SHARED?=1
 DEBUGGER=gdb
 SONAME_SETTER=-Wl,-soname,
 
+RETRO68=	/home/charlotte/devel/retro68-build/toolchain
+HOSTCC=		$(RETRO68)/bin/m68k-apple-macos-gcc
+HOSTCXX=		$(RETRO68)/bin/m68k-apple-macos-g++
+
 # For cross compilation
 HOSTCC?=$(CC)
 HOSTAR?=$(AR)
